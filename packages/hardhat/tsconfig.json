@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "es2020", // 指定 ECMAScript 目标版本为 ES2020
+    "module": "commonjs", // 使用 CommonJS 模块规范
+    "esModuleInterop": true, // 允许对 ES 模块默认导出的命名导入，这对与 CommonJS 的互操作性很重要
+    "forceConsistentCasingInFileNames": true, // 强制在导入时使用文件名的一致大小写
+    "strict": true, // 启用所有严格类型检查选项
+    "skipLibCheck": true // 跳过类型声明文件的类型检查
+  }
+}
