@@ -36,6 +36,8 @@
   },
   "packageManager": "yarn@3.2.3",
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/mongodb": "^4.0.7",
     "@types/mysql": "^2",
     "@types/uuid": "^9",
     "@types/ws": "^8",
@@ -43,12 +45,18 @@
     "lint-staged": "^13.0.3"
   },
   "dependencies": {
+    "@metamask/utils": "^11.0.0",
     "@pinata/sdk": "^2.1.0",
     "@types/node": "^20.12.12",
     "antd": "^5.18.1",
+    "bcryptjs": "^2.4.3",
     "ethers": "latest",
+    "framer-motion": "^11.13.1",
+    "mongodb": "^6.11.0",
+    "mongoose": "^8.8.3",
     "mysql": "^2.18.1",
     "mysql2": "^3.9.7",
+    "swiper": "^11.1.15",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
     "uuid": "^9.0.1",

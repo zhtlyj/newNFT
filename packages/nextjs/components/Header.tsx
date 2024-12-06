@@ -23,18 +23,40 @@ type HeaderMenuLink = {
 
 export const menuLinks: HeaderMenuLink[] = [
   {
-    label: "我的NFT",
-    href: "/myNFTs",
+    label: "首页",
+    href: "/",
     icon: <PhotoIcon className="h-4 w-4" />,
   },
   {
-    label: "NFT记录",
-    href: "/transfers",
+    label: "铸造NFT",
+    href: " /createNFT",
+    icon: <PhotoIcon className="h-4 w-4" />,
+  },
+
+
+
+
+
+ 
+  {
+    label: "我的NFT",
+    href: "/NFTCollection",
+    icon: <PhotoIcon className="h-4 w-4" />,
+  },
+  {
+    label: "交易历史记录",
+    href: "/TransactionHistory",
     icon: <ArrowPathIcon className="h-4 w-4" />,
   },
   {
-    label: "NFT文件上传",
-    href: "/ipfsUpload",
+    label: "NFT盲盒",
+    href: "/BindBOX",
+    icon: <ArrowUpTrayIcon className="h-4 w-4" />,
+  },
+
+  {
+    label: "NFT盲盒铸造",
+    href: "/BindBOX/CreateBox",
     icon: <ArrowUpTrayIcon className="h-4 w-4" />,
   },
   {
@@ -49,7 +71,7 @@ export const menuLinks: HeaderMenuLink[] = [
   },
   {
     label: "NFT市场",
-    href: "/allNFTs",
+    href: "/NFTMarket",
     icon: <PhotoIcon className="h-4 w-4" />,
   },
 ];

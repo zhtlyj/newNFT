@@ -1,8 +1,8 @@
 // your-pinata-utils.ts
 
 export async function uploadToPinata(file: File): Promise<any> {
-  const pinataApiKey = "76396819d7d9d037c9df";
-  const pinataSecretApiKey = "4f01c10f983765a79b03524da94c2e814f71fa6f8462e43ebe889377014a9ae0";
+  const pinataApiKey = "a562a26bdaed26017719";
+  const pinataSecretApiKey = "f2cd0503d960dfab80eed9d376aa2e0a818bce03a56da6c25dded4dd32f040ae";
 
   const formData = new FormData();
   formData.append("file", file);
