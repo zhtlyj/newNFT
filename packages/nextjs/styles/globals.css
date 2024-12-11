@@ -5,11 +5,18 @@
 
 :root,
 [data-theme] {
-  background: oklch(var(--b2));
+  background: #03061A;
 }
 
 body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
   min-height: 100vh;
+  background: #03061A;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
 }
 
 h1,
@@ -48,12 +55,13 @@ p {
 
 html, body {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
   background-color: #03061A;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .star {
@@ -125,15 +133,6 @@ html, body {
     transform: rotate(-45deg) translateX(-100vw);
     opacity: 0;
   }
-}
-body {
-	margin: 0;
-	padding: 0;
-	width: 100vw;
-	height: 100vh;
-	background: #080808;
-	overflow: hidden;
-	 
 }
 
 *:before,
@@ -1274,6 +1273,29 @@ body::before {
     0 0 12px #fff,
     0 0 16px #fff;
   animation: star-shine 3s ease-in-out forwards;
+}
+
+@keyframes drawPath {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.nft-logo-path {
+  stroke-dasharray: 1000;
+  animation: drawPath 2s ease-in-out forwards;
+}
+
+.canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
 }
 
 

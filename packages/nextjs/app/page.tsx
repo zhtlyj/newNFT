@@ -20,10 +20,10 @@ const nftItems: NFTItem[] = [
   {
     id: 1,
     image: '/3.avif',
-    title: '《暴力兔》NFT系列',
-    description: '🐰《暴力兔》NFT系列是一组极具个性和独特魅力的数字艺术作品，每一只暴兔都散发着强大的能量和狂野的气息，为数字艺术界带来了全新的视觉体验。 🎨✨',
-    author: '22',
-    owner: '33',
+    title: '《炫酷猴》NFT系列',
+    description: '这是一只酷炫的Bored Ape，戴着橙色毛线帽和耳环，展现独特的数字艺术风格，象征着街头文化与NFT世界的结合，充满个性与创意。 🎨✨',
+    author: '刘宇坚',
+    owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
     price: '0.85',
     attributes: [{ trait_type: 'category', value: 'Art' }]
@@ -31,10 +31,10 @@ const nftItems: NFTItem[] = [
   {
     id: 2,
     image: '/1.avif',
-    title: '《暴力娘》NFT系列',
-    description: '🌹每一幅《暴力娘》NFT都是艺术家精心打造的独一无二的作品，通过数字化手段展现了强烈的原始女性力量和自然美感，成为数字艺术市场的热门收藏品之一。 🌺🌿',
-    author: '郑逸',
-    owner: '罗宇杰',
+    title: '《暴力猴》NFT系列',
+    description: '🌹《暴力猴》NFT系列，展现了猴子与科技的结合，激光眼象征着力量与智慧，充满未来感与无限可能的视觉冲击，激发无限创意灵感。。 🌺🌿',
+    author: '刘宇坚',
+    owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
     price: '200',
     attributes: [{ trait_type: 'category', value: 'Virtual world' }]
@@ -42,10 +42,10 @@ const nftItems: NFTItem[] = [
   {
     id: 3,
     image: '/9.avif',
-    title: '《暴力狼》NFT系列',
-    description: '🖼️欣赏《暴力狼》NFT就像是探索一个神秘的世界，每一只暴狼都有着自己独特的个性和故事，让人不由得沉浸其中，感受到数字艺术带来的无限魅力。🔍🌀',
-    author: '44',
-    owner: '55',
+    title: '《天使猴》NFT系列',
+    description: '🖼️《天使猴》NFT系列，融合了神圣与顽皮，猴子的天使头环象征着纯洁与自由，展现出无尽的创意与温暖的力量，传递着爱的正能量。🔍🌀',
+    author: '刘宇坚',
+    owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
     price: '300',
     attributes: [{ trait_type: 'category', value: 'Trading Cards' }]
@@ -53,10 +53,10 @@ const nftItems: NFTItem[] = [
   {
     id: 4,
     image: '/11.avif',
-    title: '《暴力狂》NFT系列',
-    description: '🎭《暴力狂》NFT融合了数字技术和艺术创作的独特魅力，为观众带来极具视觉效果和深刻内涵的内容吸引力。每一幅暴力狂NFT都是独一无二的艺术品，值得收藏和欣赏。 💥🖌️',
-    author: '666',
-    owner: '777',
+    title: '《无奈猴》NFT系列',
+    description: '🎭《无奈猴》NFT系列，描绘了绝望与无奈的情绪，猴子的表情展现了对现实的无力感，象征着深刻的孤独、无尽的反思与迷茫。 💥🖌️',
+    author: '刘宇坚',
+    owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
     price: '400',
     attributes: [{ trait_type: 'category', value: 'Music' }]
@@ -66,8 +66,8 @@ const nftItems: NFTItem[] = [
     image: '/24.webp',
     title: '《暴力环》NFT系列',
     description: '🌀《暴力环》NFT将科技与艺术完美融合，通过炫目的视觉效果和神秘的色彩组合，展现了独特的未来感和无限可能，吸引了大量的收藏家和艺术爱好者。✨🌌',
-    author: '333',
-    owner: '3333',
+    author: '刘宇坚',
+    owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
     price: '500',
     attributes: [{ trait_type: 'category', value: 'Photography' }]
@@ -75,10 +75,10 @@ const nftItems: NFTItem[] = [
   {
     id: 6,
     image: '/27.avif',
-    title: '《暴力武士》NFT系列',
-    description: '🌟《暴力武士》NFT代表着数字艺术的未来发展方向，以其独特的艺术风格和创新的数字技术，为喜欢创意和冒险的收藏家提供了一个绝佳的投资机会。⚔️🛡️',
-    author: '222',
-    owner: '222',
+    title: '《浪漫武士》NFT系列',
+    description: '🌟《浪漫武士》NFT系列融合了骷髅与鲜花的对比美学，象征着生命与死亡、坚韧与柔情的交织，传递着独特的浪漫与深刻的哲理与艺术气息。⚔️🛡️',
+    author: '刘宇坚',
+    owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
     price: '600',
     attributes: [{ trait_type: 'category', value: 'Doodles' }]
@@ -96,6 +96,11 @@ export const VALID_CATEGORIES = [
   'Photography',
   'Utility'
 ] as const;
+
+// 定义一个包含 CSS 变量的类型
+interface CustomStyle extends React.CSSProperties {
+  '--rotation'?: string;
+}
 
 export default function Home() {
   const router = useRouter();
@@ -186,6 +191,11 @@ export default function Home() {
   // 修改 handleCreateNow 函数
   const handleCreateNow = () => {
     router.push('/createNFT');
+  };
+
+  // 添加购买处理函数
+  const handleBuy = () => {
+    router.push('/NFTMarket');
   };
 
   // 添加处理函数
@@ -279,7 +289,7 @@ export default function Home() {
                 transform: `rotate(${i * 30}deg) translateY(-60px)`,
                 '--rotation': `${i * 30}deg`,
                 animationDelay: `${i * 0.5}s`
-              }}
+              } as CustomStyle}
             >
               <div className="absolute top-0 left-0 w-full h-full bg-cyan-500 rounded-full meteor-tail"></div>
             </div>
@@ -570,10 +580,16 @@ export default function Home() {
 
                     {/* 操作按钮 */}
                     <div className="flex gap-4 mt-8">
-                      <button className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300">
+                      <button 
+                        onClick={handleBuy}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300"
+                      >
                         立即购买 {selectedNFT.price} ETH
                       </button>
-                      <button className="flex-1 px-6 py-3 border border-purple-500/30 rounded-full text-white hover:bg-purple-500/10 transition-all duration-300">
+                      
+                      <button 
+                        className="flex-1 px-6 py-3 border border-purple-500/30 rounded-full text-white hover:bg-purple-500/10 transition-all duration-300"
+                      >
                         出价
                       </button>
                     </div>

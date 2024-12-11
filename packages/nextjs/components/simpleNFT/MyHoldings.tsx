@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useScaffoldContractRead } from "~~/hooks/scaffold-eth";
 import { notification, message } from "antd";
+import { useRouter } from "next/navigation";
 
 interface NftInfo {
   image: string;
@@ -24,6 +25,7 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
   const [listingPrice, setListingPrice] = useState<{ [key: number]: string }>({});
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
+  const router = useRouter();
 
   // 加载已上架的NFT信息
   useEffect(() => {
@@ -84,6 +86,10 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
     return isNaN(numPrice) ? 'NaN' : numPrice.toFixed(2);
   };
 
+  const handleNFTClick = (nftId: number) => {
+    router.push(`/nftVR?id=${nftId}`);
+  };
+
   return (
     <div>
       {/* NFT网格布局 - 减小间距 */}
@@ -94,7 +100,10 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
             className="bg-[#231564] rounded-lg overflow-hidden border border-[#3d2b85]"
           >
             {/* NFT图片 */}
-            <div className="aspect-square relative">
+            <div 
+              className="aspect-square relative cursor-pointer" 
+              onClick={() => handleNFTClick(nft.id)}
+            >
               <img
                 src={nft.image}
                 alt={nft.name}
@@ -102,9 +111,18 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
               />
             </div>
 
-            {/* NFT信息 - 减小内边距和间距 */}
+            {/* NFT信息 */}
             <div className="p-3">
-              <h3 className="text-base font-bold text-white mb-1">{nft.name}</h3>
+              <div className="flex justify-between items-center mb-1">
+                <h3 className="text-base font-bold text-white">{nft.name}</h3>
+                <button
+                  onClick={() => handleNFTClick(nft.id)}
+                  className="px-2 py-1 text-xs bg-purple-500 hover:bg-purple-600 text-white rounded-md transition-colors"
+                >
+                  3D展厅
+                </button>
+              </div>
+              
               <p className="text-gray-400 text-xs mb-2 line-clamp-2">{nft.description}</p>
               <div className="flex justify-between items-center mb-3">
                 <span className="text-purple-400 text-sm">{formatPrice(nft.price)} ETH</span>

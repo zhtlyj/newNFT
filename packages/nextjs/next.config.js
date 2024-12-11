@@ -13,9 +13,18 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  images: {
+    domains: ['your-domain.com'],
+  },
   webpack: config => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
     config.externals.push("pino-pretty", "lokijs", "encoding");
+    config.module.rules.push({
+      test: /\.(glb|gltf|avif)$/,
+      use: {
+        loader: 'file-loader',
+      },
+    });
     return config;
   },
 };

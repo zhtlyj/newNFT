@@ -22,6 +22,7 @@ interface NftInfo {
 
 const MyNFTs: NextPage = () => {
   const { address: connectedAddress, isConnected, isConnecting } = useAccount();
+  const [filteredNFTs, setFilteredNFTs] = useState<NftInfo[]>([]);
 
   const [nftInfo, setNftInfo] = useState<NftInfo>({
     image: "",
@@ -110,7 +111,9 @@ const MyNFTs: NextPage = () => {
   useEffect(() => {
     const storedNFTs = localStorage.getItem("createdNFTs");
     if (storedNFTs) {
-      setCreatedNFTs(JSON.parse(storedNFTs));
+      const parsedNFTs = JSON.parse(storedNFTs);
+      setCreatedNFTs(parsedNFTs);
+      setFilteredNFTs(parsedNFTs.filter((nft: NftInfo) => nft.owner === connectedAddress));
     }
   }, [connectedAddress]);
 
@@ -216,7 +219,7 @@ const MyNFTs: NextPage = () => {
         </div>
       )}
 
-      <MyHoldings />
+      <MyHoldings filteredNFTs={filteredNFTs} />
     </>
   );
 };

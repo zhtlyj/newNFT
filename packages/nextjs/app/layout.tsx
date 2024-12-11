@@ -2,6 +2,7 @@ import "@rainbow-me/rainbowkit/styles.css";
 import { Metadata } from "next";
 import { ScaffoldEthAppWithProviders } from "~~/components/ScaffoldEthAppWithProviders";
 import { ThemeProvider } from "~~/components/ThemeProvider";
+import { RouteChangeProvider } from "~~/components/RouteChangeProvider";
 import "~~/styles/globals.css";
 
 const baseUrl = process.env.VERCEL_URL
@@ -11,7 +12,7 @@ const imageUrl = `${baseUrl}/thumbnail.jpg`;
 
 const title = "智慧 | 版权";
 const titleTemplate = "智慧 | 版权";
-const description = "通过智慧版权项目，我们希望能够为创作者提供一个可靠的版权保护环境，激发更多的创新和创作，推动整个社会的文化和科技发展。🌟🚀";
+const description = "通过智慧版权项目，我们希望能够为创作者提供一个可靠的版权保护环境，激发更多的创新和创作，推动整个社会的文化和科技发展。🚀";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
     description,
   },
   icons: {
-    icon: [{ url: "/favicon.png", sizes: "32x32", type: "image/png" }],
+    icon: [{ url: "/favicon2.png", sizes: "32x32", type: "image/png" }],
   },
 };
 
@@ -51,7 +52,11 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
     <html suppressHydrationWarning>
       <body>
         <ThemeProvider enableSystem>
-          <ScaffoldEthAppWithProviders>{children}</ScaffoldEthAppWithProviders>
+          <ScaffoldEthAppWithProviders>
+            <RouteChangeProvider>
+              {children}
+            </RouteChangeProvider>
+          </ScaffoldEthAppWithProviders>
         </ThemeProvider>
       </body>
     </html>
