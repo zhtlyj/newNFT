@@ -10,9 +10,9 @@ const baseUrl = process.env.VERCEL_URL
   : `http://localhost:${process.env.PORT || 3000}`;
 const imageUrl = `${baseUrl}/thumbnail.jpg`;
 
-const title = "智慧 | 版权";
-const titleTemplate = "智慧 | 版权";
-const description = "通过智慧版权项目，我们希望能够为创作者提供一个可靠的版权保护环境，激发更多的创新和创作，推动整个社会的文化和科技发展。🚀";
+const title = "梦境星辰";
+const titleTemplate = "梦境星辰";
+const description = "在虚拟世界“梦境星辰”中，NFT不仅是艺术创作的体现，它们还成为了进入每个社群、参与每个虚拟场景的“钥匙”。。🚀";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),

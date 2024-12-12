@@ -147,8 +147,8 @@ export const Header = () => {
             <Image alt="SE2 logo" className="cursor-pointer" fill src="/logo.png" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold leading-tight">智慧·版权</span>
-            <span className="text-xs">您的版权交给区块链来保护！</span>
+            <span className="font-bold leading-tight">梦境·星辰</span>
+            <span className="text-xs">您的作品交给区块链来保护！</span>
           </div>
         </Link>
         <ul className="hidden xl:flex xl:flex-nowrap menu menu-horizontal px-1 gap-2">
