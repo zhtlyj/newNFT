@@ -26,6 +26,9 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
   const router = useRouter();
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentVideo, setCurrentVideo] = useState('');
 
   // 加载已上架的NFT信息
   useEffect(() => {
@@ -86,12 +89,62 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
     return isNaN(numPrice) ? 'NaN' : numPrice.toFixed(2);
   };
 
-  const handleNFTClick = (nftId: number) => {
-    router.push(`/nftVR?id=${nftId}`);
+  const handle3DView = (index: number) => {
+    switch (index) {
+      case 0:
+        // 第一个NFT播放视频
+        setIsLoading(true);
+        setCurrentVideo('/lanqiu.mp4');
+        setTimeout(() => {
+          setIsLoading(false);
+          setIsVideoPlaying(true);
+        }, 2000);
+        break;
+      case 1:
+        // 第二个NFT播放视频
+        setIsLoading(true);
+        setCurrentVideo('/yanchanghui.mp4');
+        setTimeout(() => {
+          setIsLoading(false);
+          setIsVideoPlaying(true);
+        }, 2000);
+        break;
+      default:
+        // 第三个及之后的NFT跳转到/nftVR
+        router.push('/nftVR');
+        break;
+    }
   };
 
   return (
     <div>
+      {/* 加载动画 */}
+      {isLoading && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex flex-col items-center justify-center">
+          <div className="text-white text-2xl mb-4">正在进入3D展厅</div>
+          <div className="w-16 h-16 border-t-4 border-purple-500 border-solid rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {/* 视频播放弹窗 */}
+      {isVideoPlaying && (
+        <div className="fixed top-[64px] bottom-0 left-0 right-0 z-40 bg-black">
+          <button
+            onClick={() => setIsVideoPlaying(false)}
+            className="absolute top-4 right-4 text-white text-xl z-50 bg-purple-500 rounded-full w-8 h-8 flex items-center justify-center hover:bg-purple-600"
+          >
+            ×
+          </button>
+          <video
+            className="w-full h-full object-cover"
+            autoPlay
+            controls
+            src={currentVideo}
+            onEnded={() => setIsVideoPlaying(false)}
+          />
+        </div>
+      )}
+
       {/* NFT网格布局 - 减小间距 */}
       <div className="grid grid-cols-2 gap-4">
         {currentNFTs.map((nft, index) => (
@@ -102,7 +155,7 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
             {/* NFT图片 */}
             <div 
               className="aspect-square relative cursor-pointer" 
-              onClick={() => handleNFTClick(nft.id)}
+              onClick={() => handle3DView(index)}
             >
               <img
                 src={nft.image}
@@ -116,7 +169,7 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
               <div className="flex justify-between items-center mb-1">
                 <h3 className="text-base font-bold text-white">{nft.name}</h3>
                 <button
-                  onClick={() => handleNFTClick(nft.id)}
+                  onClick={() => handle3DView(index)}
                   className="px-2 py-1 text-xs bg-purple-500 hover:bg-purple-600 text-white rounded-md transition-colors"
                 >
                   3D展厅

@@ -8,6 +8,7 @@ import { useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaf
 import { notification } from "~~/utils/scaffold-eth";
 import { addToIPFS } from "~~/utils/simpleNFT/ipfs-fetch";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
+import { useRouter } from "next/navigation";
 
 interface NftInfo {
   image: string;
