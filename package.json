@@ -44,6 +44,7 @@
     "@types/three": "^0",
     "@types/uuid": "^9",
     "@types/ws": "^8",
+    "@types/xmlhttprequest": "^1",
     "husky": "^8.0.1",
     "lint-staged": "^13.0.3"
   },
@@ -72,6 +73,7 @@
     "typescript": "^5.4.5",
     "uuid": "^9.0.1",
     "web3": "^4.8.0",
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "xmlhttprequest": "^1.8.0"
   }
 }
