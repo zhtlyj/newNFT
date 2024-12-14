@@ -32,7 +32,7 @@ const nftItems: NFTItem[] = [
     id: 2,
     image: '/1.avif',
     title: '《暴力猴》NFT系列',
-    description: '🌹《暴力猴》NFT系列，展现了猴子与科技的结合，激光眼象征着力量与智慧，充满未来感与无限可能的视觉冲击，激发无限创意灵感。。 🌺🌿',
+    description: '🌹《暴力猴》NFT系列，展现了猴子与科技的结合，激光眼象征着力量与智慧，充满未来感与无限可能的视觉冲击，激发无限���意灵感。。 🌺🌿',
     author: '刘宇坚',
     owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
@@ -268,7 +268,7 @@ export default function Home() {
       <div className="absolute right-6 bottom-40 w-20 h-20 border-r-2 border-b-2 border-purple-500/50"></div>
 
       {/* 右上角装饰元素 */}
-      <div className="absolute top-12 right-12 w-[300px] h-[300px] z-10">
+      <div className="absolute top-12 right-12 w-[200px] h-[200px] lg:w-[300px] lg:h-[300px] z-10">
         {/* 外圈光环 */}
         <div className="absolute inset-0 rounded-full border-2 border-cyan-500/30 animate-spin-slower"></div>
         <div className="absolute inset-2 rounded-full border border-purple-500/20 animate-reverse-spin-slower"></div>
@@ -392,8 +392,8 @@ export default function Home() {
       </div>
 
       {/* 左侧标题文本 */}
-      <div className="absolute left-12 top-[400px] max-w-lg z-20">
-        <h2 className="text-7xl font-bold leading-tight">
+      <div className="absolute left-4 lg:left-12 top-[300px] lg:top-[400px] max-w-lg z-20">
+        <h2 className="text-4xl lg:text-7xl font-bold leading-tight">
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-white to-purple-300">
             collect your
           </span>
@@ -406,19 +406,19 @@ export default function Home() {
             digital art
           </span>
         </h2>
-        <p className="mt-6 text-gray-400 text-lg max-w-md leading-relaxed">
+        <p className="mt-4 lg:mt-6 text-base lg:text-lg text-gray-400 max-w-md leading-relaxed">
           The world's first and massive web3 marketplace for NFTs and crypto collectibles. Browse, create, buy, sell, and auction NFT using our platform
         </p>
-        <div className="mt-8 flex space-x-4 relative">
+        <div className="mt-6 lg:mt-8 flex flex-col sm:flex-row gap-4 sm:space-x-4 relative">
           <button 
-            className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 cursor-pointer z-30"
+            className="px-6 lg:px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 cursor-pointer z-30"
             onClick={handleMyNFTs}
           >
             My NFT Collection
           </button>
           <button 
             onClick={handleCreateNow}
-            className="px-8 py-3 border border-purple-500/30 rounded-full text-white hover:bg-purple-500/10 transition-all duration-300 cursor-pointer z-30"
+            className="px-6 lg:px-8 py-3 border border-purple-500/30 rounded-full text-white hover:bg-purple-500/10 transition-all duration-300 cursor-pointer z-30"
           >
             Create Now
           </button>
@@ -442,7 +442,7 @@ export default function Home() {
         </div>
 
         {/* 轮播容器 - 添加装饰边框 */}
-        <div className="relative w-[1100px] h-[700px] mx-auto">
+        <div className="relative w-full max-w-[1100px] h-[400px] md:h-[500px] lg:h-[700px] mx-auto">
           {/* 装饰边角 */}
           <div className="absolute -top-2 -left-2 w-20 h-20 border-l-2 border-t-2 border-cyan-500/50"></div>
           <div className="absolute -top-2 -right-2 w-20 h-20 border-r-2 border-t-2 border-purple-500/50"></div>
@@ -456,13 +456,13 @@ export default function Home() {
                 key={item.id}
                 className={`item absolute transition-all duration-500 cursor-pointer
                   ${index === 0 || index === 1 ? 'w-full h-full top-0 left-0' : 
-                    index === 2 ? 'w-[200px] h-[300px] left-[50%]' :
-                    index === 3 ? 'w-[200px] h-[300px] left-[calc(50%+220px)]' :
-                    index === 4 ? 'w-[200px] h-[300px] left-[calc(50%+440px)]' :
-                    'w-[200px] h-[300px] left-[calc(50%+660px)] opacity-0'
+                    index === 2 ? 'w-[150px] md:w-[200px] h-[200px] md:h-[300px] left-[50%]' :
+                    index === 3 ? 'w-[150px] md:w-[200px] h-[200px] md:h-[300px] left-[calc(50%+170px)] md:left-[calc(50%+220px)]' :
+                    index === 4 ? 'w-[150px] md:w-[200px] h-[200px] md:h-[300px] left-[calc(50%+340px)] md:left-[calc(50%+440px)]' :
+                    'w-[150px] md:w-[200px] h-[200px] md:h-[300px] left-[calc(50%+510px)] md:left-[calc(50%+660px)] opacity-0'
                   }`}
                 style={{
-                  marginTop: index <= 1 ? '0' : '-150px',
+                  marginTop: index <= 1 ? '0' : '-100px md:-150px',
                   top: index <= 1 ? '0' : '50%'
                 }}
                 onClick={() => index <= 1 && setSelectedNFT(item)}
@@ -475,14 +475,14 @@ export default function Home() {
                   className="rounded-[4px]"
                 />
                 {index === 1 && (
-                  <div className="content absolute w-[300px] left-[100px] top-1/2 -translate-y-1/2 text-white">
-                    <div className="name text-[40px] font-[900] animate-fadeIn">
+                  <div className="content absolute w-[200px] md:w-[300px] left-[50px] md:left-[100px] top-1/2 -translate-y-1/2 text-white">
+                    <div className="name text-2xl md:text-[40px] font-[900] animate-fadeIn">
                       {item.title}
                     </div>
-                    <div className="des my-5 animate-fadeIn animation-delay-300">
+                    <div className="des my-3 md:my-5 text-sm md:text-base animate-fadeIn animation-delay-300">
                       {item.description}
                     </div>
-                    <button className="px-5 py-2.5 bg-white/20 rounded animate-fadeIn animation-delay-600">
+                    <button className="px-4 md:px-5 py-2 md:py-2.5 bg-white/20 rounded animate-fadeIn animation-delay-600">
                       查看详情
                     </button>
                   </div>
@@ -511,7 +511,7 @@ export default function Home() {
         {/* NFT 详情弹窗 */}
         {selectedNFT && (
           <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4 modal-overlay">
-            <div className="bg-gradient-to-br from-[#040047] via-[#050056] to-[#040047] rounded-2xl p-8 max-w-4xl w-full mx-4 border border-[#0a0058] relative">
+            <div className="bg-gradient-to-br from-[#040047] via-[#050056] to-[#040047] rounded-2xl p-4 md:p-8 max-w-4xl w-full mx-4 border border-[#0a0058] relative">
               {/* 关闭按钮 */}
               <button 
                 className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
@@ -523,7 +523,7 @@ export default function Home() {
               </button>
 
               {/* NFT 内容 */}
-              <div className="flex flex-col md:flex-row gap-8">
+              <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                 {/* 左侧图片 */}
                 <div className="w-full md:w-1/2 relative aspect-square rounded-xl overflow-hidden">
                   <Image
@@ -537,16 +537,16 @@ export default function Home() {
 
                 {/* 右侧信息 */}
                 <div className="w-full md:w-1/2 flex flex-col">
-                  <h2 className="text-3xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                  <h2 className="text-2xl md:text-3xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
                     {selectedNFT.title}
                   </h2>
                   
                   {/* 添加价格显示 */}
-                  <div className="flex items-center space-x-2 mb-6">
-                    <span className="text-4xl font-bold text-white">
+                  <div className="flex items-center space-x-2 mb-4 md:mb-6">
+                    <span className="text-2xl md:text-4xl font-bold text-white">
                       {selectedNFT.price} ETH
                     </span>
-                    <span className="text-gray-400 text-sm">
+                    <span className="text-xs md:text-sm text-gray-400">
                       ≈ ${(parseFloat(selectedNFT.price) * 2000).toLocaleString()} USD
                     </span>
                   </div>
@@ -579,16 +579,16 @@ export default function Home() {
                     </div>
 
                     {/* 操作按钮 */}
-                    <div className="flex gap-4 mt-8">
+                    <div className="flex gap-2 md:gap-4 mt-4 md:mt-8">
                       <button 
                         onClick={handleBuy}
-                        className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300"
+                        className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 text-sm md:text-base"
                       >
                         立即购买 {selectedNFT.price} ETH
                       </button>
                       
                       <button 
-                        className="flex-1 px-6 py-3 border border-purple-500/30 rounded-full text-white hover:bg-purple-500/10 transition-all duration-300"
+                        className="flex-1 px-4 md:px-6 py-2 md:py-3 border border-purple-500/30 rounded-full text-white hover:bg-purple-500/10 transition-all duration-300 text-sm md:text-base"
                       >
                         出价
                       </button>

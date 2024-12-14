@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import type { NextPage } from "next";
 import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldEventHistory } from "~~/hooks/scaffold-eth";
+import { useNetwork } from "wagmi";
 
 const TransactionHistory: NextPage = () => {
   const [glowEffect, setGlowEffect] = useState(false);
+  const { chain } = useNetwork();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -18,8 +20,17 @@ const TransactionHistory: NextPage = () => {
   const { data: transferEvents, isLoading } = useScaffoldEventHistory({
     contractName: "YourCollectible",
     eventName: "Transfer",
-    fromBlock: 0n,
+    fromBlock: BigInt(0),
   });
+
+  const getExplorerUrl = (blockNumber: number | bigint) => {
+    if (chain?.id === 5003) {
+      // Mantle Sepolia Testnet
+      return `https://sepolia.mantlescan.xyz/block/${blockNumber.toString()}`;
+    }
+    // 默认返回 Etherscan URL
+    return `https://sepolia.etherscan.io/block/${blockNumber.toString()}`;
+  };
 
   if (isLoading)
     return (
@@ -131,12 +142,12 @@ const TransactionHistory: NextPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <a
-                            href={`https://sepolia.etherscan.io/block/${event.block?.number}`}
+                            href={getExplorerUrl(event.block?.number || BigInt(0))}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-purple-400 hover:text-purple-300 transition-colors"
                           >
-                            {event.block?.number?.toString()}
+                            {event.block?.number?.toString() || '0'}
                           </a>
                         </td>
                         <td className="px-6 py-4 text-gray-400 text-sm">
@@ -154,9 +165,9 @@ const TransactionHistory: NextPage = () => {
         {/* 页脚说明 */}
         <div className="mt-8 text-center text-gray-400 text-sm relative">
           <span className="inline-block hover:text-purple-400 transition-colors cursor-help">
-            点击区块号可以在 Etherscan 上查看详细信息
+            点击区块号可以在对应网络的区块浏览器上查看详细信息
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-purple-500 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Click block number to view on Etherscan
+              Click block number to view on block explorer
             </div>
           </span>
         </div>

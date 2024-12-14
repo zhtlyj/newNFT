@@ -6,10 +6,10 @@ import { useAccount, useBalance } from "wagmi";
 import { Modal, Button, notification, Pagination, Input } from "antd";
 import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
-import { ethers } from "ethers";
-import { formatEther } from 'viem';
+import { formatEther, parseEther } from 'viem';
 import StepsGuide from "./components/StepsGuide";
 import NFTCarousel from "./components/NFTCarousel";
+import Image from "next/image";
 
 interface Collectible {
   image: string;
@@ -36,11 +36,12 @@ const AllNFTs: NextPage = () => {
   const [searchText, setSearchText] = useState("");
   const [filteredNFTs, setFilteredNFTs] = useState<Collectible[]>([]);
   const itemsPerPage = 6;
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   const { writeAsync: purchase } = useScaffoldContractWrite({
     contractName: "YourCollectible",
     functionName: "purchase",
-    args: [0n, '', '', 0n, 0n],
   });
 
   // 获取账户余额
@@ -53,8 +54,14 @@ const AllNFTs: NextPage = () => {
     const storedListedNFTs = localStorage.getItem("listedNFTs");
     if (storedAllNFTs) {
       const nfts = JSON.parse(storedAllNFTs);
-      setAllNFTs(nfts);
-      setFilteredNFTs(nfts);
+      // 验证每个 NFT 的所有者地址
+      const validNFTs = nfts.map(nft => ({
+        ...nft,
+        owner: nft.owner ? nft.owner.toLowerCase() : null // 确保地址格式一致
+      })).filter(nft => nft.owner); // 过滤掉没有有效所有者的 NFT
+      
+      setAllNFTs(validNFTs);
+      setFilteredNFTs(validNFTs);
     }
     if (storedListedNFTs) {
       const listed = JSON.parse(storedListedNFTs);
@@ -94,7 +101,14 @@ const AllNFTs: NextPage = () => {
 
   const getPriceById = (id: number) => {
     const listedNft = listedNFTs.find(nft => nft.id === id);
-    return listedNft ? listedNft.price : "N/A";
+    if (!listedNft) return "N/A";
+    
+    // 确保价格存在且有效
+    if (!listedNft.price || listedNft.price === "0") {
+      return "N/A";
+    }
+    
+    return listedNft.price;
   };
 
   const handlePurchase = async () => {
@@ -104,51 +118,180 @@ const AllNFTs: NextPage = () => {
     }
 
     try {
+      // 获取NFT价格并验证
       const price = getPriceById(selectedNft.id);
-      const value = ethers.parseUnits(price, "ether");
+      if (price === "N/A") {
+        notification.error({ message: "NFT价无效" });
+        return;
+      }
+
+      // 添加所有者地址验证
+      if (!selectedNft.owner) {
+        notification.error({ message: "NFT所有者地址无效" });
+        return;
+      }
+
+      console.log("NFT Owner:", selectedNft.owner); // 调试用
+      console.log("Connected Address:", connectedAddress); // 调试用
+
+      const priceInWei = parseEther(price);
       
-      // 修改参数，只传递合约需要的三个参数
-      await purchase({
+      if (balance && balance.value < priceInWei) {
+        notification.error({ message: "余额不足" });
+        return;
+      }
+
+      // 确保地址格式正确
+      const ownerAddress = selectedNft.owner.toLowerCase();
+      
+      // 调用合约
+      const tx = await purchase({
         args: [
-          BigInt(selectedNft.id),  // tokenId
-          selectedNft.owner,       // from
-          value                    // price
+          BigInt(selectedNft.id),
+          ownerAddress,           // 确保使用正确格式的所有者地址
+          priceInWei
         ],
-        value, // 发送的ETH数量
+        value: priceInWei,
       });
 
-      notification.success({ message: "购买成功" });
+      // 等待交易确认
+      await tx.wait();
 
-      // 更新状态
-      const updatedAllNFTs = allNFTs.filter((nft) => nft.id !== selectedNft.id);
+      notification.success({ 
+        message: "购买成功",
+        description: "NFT已转移到您的账户"
+      });
+
+      // 更新本地状态
+      const updatedAllNFTs = allNFTs.map(nft => 
+        nft.id === selectedNft.id 
+          ? { ...nft, owner: connectedAddress } 
+          : nft
+      );
       setAllNFTs(updatedAllNFTs);
       localStorage.setItem("allNFTs", JSON.stringify(updatedAllNFTs));
 
-      const updatedListedNFTs = listedNFTs.filter((nft) => nft.id !== selectedNft.id);
+      // 从已上架列表中移除
+      const updatedListedNFTs = listedNFTs.filter(nft => nft.id !== selectedNft.id);
       setListedNFTs(updatedListedNFTs);
       localStorage.setItem("listedNFTs", JSON.stringify(updatedListedNFTs));
 
-      // 更新 createdNFTs
+      // 更新创建的NFT列表
       const storedCreatedNFTs = localStorage.getItem("createdNFTs");
-      const createdNFTs = storedCreatedNFTs ? JSON.parse(storedCreatedNFTs) : [];
-      const updatedCreatedNFTs = createdNFTs.map((nft: Collectible) =>
-        nft.id === selectedNft.id ? { ...nft, owner: connectedAddress } : nft
-      );
-      localStorage.setItem("createdNFTs", JSON.stringify(updatedCreatedNFTs));
+      if (storedCreatedNFTs) {
+        const createdNFTs = JSON.parse(storedCreatedNFTs);
+        const updatedCreatedNFTs = createdNFTs.map((nft: Collectible) =>
+          nft.id === selectedNft.id 
+            ? { ...nft, owner: connectedAddress } 
+            : nft
+        );
+        localStorage.setItem("createdNFTs", JSON.stringify(updatedCreatedNFTs));
+      }
+
+      // 更新 myNFTs 列表 - 从原主人的 myNFTs 中移除
+      const storedMyNFTs = localStorage.getItem("myNFTs");
+      if (storedMyNFTs) {
+        const myNFTs = JSON.parse(storedMyNFTs);
+        // 移除已售出的 NFT
+        const updatedMyNFTs = myNFTs.filter((nft: Collectible) => nft.id !== selectedNft.id);
+        localStorage.setItem("myNFTs", JSON.stringify(updatedMyNFTs));
+      }
+
+      // 更新买家的 myNFTs 列表 - 添加到新主人的 myNFTs 中
+      const buyerMyNFTs = localStorage.getItem(`myNFTs_${connectedAddress}`);
+      const currentBuyerNFTs = buyerMyNFTs ? JSON.parse(buyerMyNFTs) : [];
+      const updatedBuyerNFTs = [
+        ...currentBuyerNFTs,
+        {
+          ...selectedNft,
+          owner: connectedAddress
+        }
+      ];
+      localStorage.setItem(`myNFTs_${connectedAddress}`, JSON.stringify(updatedBuyerNFTs));
 
       setIsModalOpen(false);
+
     } catch (error) {
-      console.error(error);
-      notification.error({ message: "购买失败" });
+      console.error("Purchase error:", error);
+      let errorMessage = "购买失败";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("user rejected transaction")) {
+          errorMessage = "用户取消了交易";
+        } else if (error.message.includes("insufficient funds")) {
+          errorMessage = "余额不足";
+        } else if (error.message.includes("Token does not exist")) {
+          errorMessage = "NFT不存在";
+        } else if (error.message.includes("From address is not the owner")) {
+          errorMessage = "卖家地址验证失败，请确认NFT所有权";
+        } else if (error.message.includes("Incorrect price")) {
+          errorMessage = "价格不正确";
+        }
+      }
+
+      notification.error({ 
+        message: errorMessage,
+        description: error instanceof Error ? error.message : "未知错误"
+      });
     }
   };
 
   // 分页后的数据
   const paginatedNFTs = filteredNFTs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  // 自动轮播逻辑
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    // 只有当items长度大于3时才启动自动轮播
+    if (paginatedNFTs.length > 3 && isAutoPlaying) {
+      intervalId = setInterval(() => {
+        setCurrentIndex(prevIndex => (prevIndex + 1) % paginatedNFTs.length);
+      }, 3000);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [paginatedNFTs.length, isAutoPlaying]);
+
+  // 处理手动切换
+  const handlePrev = () => {
+    setIsAutoPlaying(false); // 暂停自动轮播
+    setCurrentIndex(prevIndex => (prevIndex - 1 + paginatedNFTs.length) % paginatedNFTs.length);
+  };
+
+  const handleNext = () => {
+    setIsAutoPlaying(false); // 暂停自动轮播
+    setCurrentIndex(prevIndex => (prevIndex + 1) % paginatedNFTs.length);
+  };
+
+  // 计算要显示的NFT索引
+  const getVisibleNFTs = () => {
+    if (paginatedNFTs.length <= 3) {
+      // 如果NFT数量少于等于3，直接显示所有
+      return paginatedNFTs;
+    }
+
+    // 否则显示当前索引及其后两个NFT
+    const visibleNFTs = [];
+    for (let i = 0; i < 3; i++) {
+      const index = (currentIndex + i) % paginatedNFTs.length;
+      visibleNFTs.push(paginatedNFTs[index]);
+    }
+    return visibleNFTs;
+  };
+
+  // 恢复自动轮播
+  const resumeAutoPlay = () => {
+    setIsAutoPlaying(true);
+  };
+
   return (
     <div className="min-h-screen bg-[#1a1147]">
-      {/* 顶部部分 - 限制高度为屏幕的1/3 */}
+      {/* 顶部部分 - 限制���度为屏幕的1/3 */}
       <div className="h-[33vh] relative">
         {/* 搜索框部分 */}
         <div className="container mx-auto px-6 pt-4">
@@ -192,7 +335,7 @@ const AllNFTs: NextPage = () => {
           <div className="text-2xl text-gray-400 text-center">暂无在售NFT</div>
         ) : (
           <NFTCarousel
-            nfts={paginatedNFTs}
+            nfts={getVisibleNFTs()}
             onOpenModal={openModal}
             getPriceById={getPriceById}
             connectedAddress={connectedAddress}
@@ -217,7 +360,7 @@ const AllNFTs: NextPage = () => {
         width={500}
         className="purchase-modal"
         centered
-        footer={null} // 移除默认的 footer，使用自定义的
+        footer={null} // 移除默认�� footer，使用自定义的
       >
         {selectedNft && (
           <div className="space-y-6 py-4">

@@ -118,6 +118,16 @@ const config: HardhatUserConfig = {
       url: "https://sepolia.publicgoods.network",
       accounts: [deployerPrivateKey],
     },
+    mantleSepolia: {
+      url: "https://rpc.sepolia.mantle.xyz",
+      chainId: 5003,
+      accounts: [deployerPrivateKey],
+      verify: {
+        etherscan: {
+          apiUrl: "https://sepolia.mantlescan.xyz",
+        },
+      },
+    },
   },
   // configuration for harhdat-verify plugin
   etherscan: {
