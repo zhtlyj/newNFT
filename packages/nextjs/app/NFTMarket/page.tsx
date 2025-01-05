@@ -10,6 +10,7 @@ import { formatEther, parseEther } from 'viem';
 import StepsGuide from "./components/StepsGuide";
 import NFTCarousel from "./components/NFTCarousel";
 import Image from "next/image";
+import axios from "axios";
 
 interface Collectible {
   image: string;
@@ -18,12 +19,15 @@ interface Collectible {
   attributes: { trait_type: string; value: string }[];
   owner: string;
   description: string;
+  Shelves: number;
   CID: string;
+  PurchasePrice: string;
 }
 
 interface ListedNftInfo {
   id: number;
   price: string;
+  PurchasePrice: string;
 }
 
 const AllNFTs: NextPage = () => {
@@ -49,24 +53,35 @@ const AllNFTs: NextPage = () => {
     address: connectedAddress,
   });
 
+  // 从数据库获取 NFT 数据
   useEffect(() => {
-    const storedAllNFTs = localStorage.getItem("allNFTs");
-    const storedListedNFTs = localStorage.getItem("listedNFTs");
-    if (storedAllNFTs) {
-      const nfts = JSON.parse(storedAllNFTs);
-      // 验证每个 NFT 的所有者地址
-      const validNFTs = nfts.map(nft => ({
-        ...nft,
-        owner: nft.owner ? nft.owner.toLowerCase() : null // 确保地址格式一致
-      })).filter(nft => nft.owner); // 过滤掉没有有效所有者的 NFT
-      
-      setAllNFTs(validNFTs);
-      setFilteredNFTs(validNFTs);
-    }
-    if (storedListedNFTs) {
-      const listed = JSON.parse(storedListedNFTs);
-      setListedNFTs(listed);
-    }
+    const fetchNFTs = async () => {
+      try {
+        const [ listedNFTsResponse] = await Promise.all([
+          axios.get('http://localhost:4000/getNftsli')
+        ]);
+
+        // 格式化 NFT 数据，确保包含 PurchasePrice
+        const formattedNFTs = listedNFTsResponse.data.nfts.map((nft: any) => ({
+          id: nft.nft_id,
+          name: nft.nft_name,
+          image: nft.nft_image,
+          description: nft.description,
+          owner: nft.owner?.toLowerCase(),
+          CID: nft.CID,
+          Shelves: nft.Shelves,
+          PurchasePrice: nft.PurchasePrice // 确保包含 PurchasePrice
+        }));
+
+        console.log("Formatted NFTs:", formattedNFTs); // 调试日志
+        setAllNFTs(formattedNFTs);
+        setFilteredNFTs(formattedNFTs);
+      } catch (error) {
+        console.error("Error fetching NFTs:", error);
+      }
+    };
+
+    fetchNFTs();
   }, []);
 
   const handleSearch = (value: string) => {
@@ -90,8 +105,12 @@ const AllNFTs: NextPage = () => {
     setCurrentPage(1); // 重置到第一页
   }, [searchText, allNFTs]);
 
-  const openModal = (nft: Collectible) => {
-    setSelectedNft(nft);
+  const openModal = (nft: any) => {
+    console.log("Opening modal with NFT:", nft); // 调试日志
+    setSelectedNft({
+      ...nft,
+      PurchasePrice: nft.PurchasePrice // 确保包含 PurchasePrice
+    });
     setIsModalOpen(true);
   };
 
@@ -112,27 +131,16 @@ const AllNFTs: NextPage = () => {
   };
 
   const handlePurchase = async () => {
-    if (!selectedNft || !connectedAddress) {
-      notification.error({ message: "请先连接钱包" });
-      return;
-    }
+    if (!selectedNft || !connectedAddress) return;
 
     try {
-      // 获取NFT价格并验证
-      const price = getPriceById(selectedNft.id);
-      if (price === "N/A") {
-        notification.error({ message: "NFT价无效" });
-        return;
-      }
-
-      // 添加所有者地址验证
+      // 使用 PurchasePrice 作为购买价格
+      const price = selectedNft.PurchasePrice;
+      
       if (!selectedNft.owner) {
         notification.error({ message: "NFT所有者地址无效" });
         return;
       }
-
-      console.log("NFT Owner:", selectedNft.owner); // 调试用
-      console.log("Connected Address:", connectedAddress); // 调试用
 
       const priceInWei = parseEther(price);
       
@@ -141,73 +149,59 @@ const AllNFTs: NextPage = () => {
         return;
       }
 
-      // 确保地址格式正确
       const ownerAddress = selectedNft.owner.toLowerCase();
       
       // 调用合约
       const tx = await purchase({
         args: [
           BigInt(selectedNft.id),
-          ownerAddress,           // 确保使用正确格式的所有者地址
+          ownerAddress,
           priceInWei
         ],
         value: priceInWei,
       });
 
-      // 等待交易确认
       await tx.wait();
+
+      // 使用 /guomai 接口更新 NFT 状态
+      await axios.put('http://localhost:4000/guomai', {
+        nft_id: selectedNft.id,
+        owner: connectedAddress, // 新的所有者
+        shelvesValue: 0 // 购买后自动下架
+      });
+
+      // 重新获取最新数据
+      const [allNFTsResponse, listedNFTsResponse] = await Promise.all([
+        axios.get('http://localhost:4000/getNfts'),
+        axios.get('http://localhost:4000/getNftsli')
+      ]);
+
+      // 更新所有 NFTs
+      const updatedNFTs = allNFTsResponse.data.nfts.map((nft: any) => ({
+        image: nft.nft_image,
+        id: nft.nft_id,
+        name: nft.nft_name,
+        attributes: nft.attributes,
+        owner: nft.owner?.toLowerCase(),
+        description: nft.description,
+        Shelves: nft.Shelves, 
+        PurchasePrice: nft.PurchasePrice,
+        CID: nft.CID
+      }));
+      setAllNFTs(updatedNFTs);
+      setFilteredNFTs(updatedNFTs);
+
+      // 更新已上架的 NFTs
+      const updatedListedNFTs = listedNFTsResponse.data.nfts.map((nft: any) => ({
+        id: nft.nft_id,
+        price: nft.price
+      }));
+      setListedNFTs(updatedListedNFTs);
 
       notification.success({ 
         message: "购买成功",
         description: "NFT已转移到您的账户"
       });
-
-      // 更新本地状态
-      const updatedAllNFTs = allNFTs.map(nft => 
-        nft.id === selectedNft.id 
-          ? { ...nft, owner: connectedAddress } 
-          : nft
-      );
-      setAllNFTs(updatedAllNFTs);
-      localStorage.setItem("allNFTs", JSON.stringify(updatedAllNFTs));
-
-      // 从已上架列表中移除
-      const updatedListedNFTs = listedNFTs.filter(nft => nft.id !== selectedNft.id);
-      setListedNFTs(updatedListedNFTs);
-      localStorage.setItem("listedNFTs", JSON.stringify(updatedListedNFTs));
-
-      // 更新创建的NFT列表
-      const storedCreatedNFTs = localStorage.getItem("createdNFTs");
-      if (storedCreatedNFTs) {
-        const createdNFTs = JSON.parse(storedCreatedNFTs);
-        const updatedCreatedNFTs = createdNFTs.map((nft: Collectible) =>
-          nft.id === selectedNft.id 
-            ? { ...nft, owner: connectedAddress } 
-            : nft
-        );
-        localStorage.setItem("createdNFTs", JSON.stringify(updatedCreatedNFTs));
-      }
-
-      // 更新 myNFTs 列表 - 从原主人的 myNFTs 中移除
-      const storedMyNFTs = localStorage.getItem("myNFTs");
-      if (storedMyNFTs) {
-        const myNFTs = JSON.parse(storedMyNFTs);
-        // 移除已售出的 NFT
-        const updatedMyNFTs = myNFTs.filter((nft: Collectible) => nft.id !== selectedNft.id);
-        localStorage.setItem("myNFTs", JSON.stringify(updatedMyNFTs));
-      }
-
-      // 更新买家的 myNFTs 列表 - 添加到新主人的 myNFTs 中
-      const buyerMyNFTs = localStorage.getItem(`myNFTs_${connectedAddress}`);
-      const currentBuyerNFTs = buyerMyNFTs ? JSON.parse(buyerMyNFTs) : [];
-      const updatedBuyerNFTs = [
-        ...currentBuyerNFTs,
-        {
-          ...selectedNft,
-          owner: connectedAddress
-        }
-      ];
-      localStorage.setItem(`myNFTs_${connectedAddress}`, JSON.stringify(updatedBuyerNFTs));
 
       setIsModalOpen(false);
 
@@ -291,7 +285,7 @@ const AllNFTs: NextPage = () => {
 
   return (
     <div className="min-h-screen bg-[#1a1147]">
-      {/* 顶部部分 - 限制���度为屏幕的1/3 */}
+      {/* 顶部部分 - 限制度为屏幕的1/3 */}
       <div className="h-[33vh] relative">
         {/* 搜索框部分 */}
         <div className="container mx-auto px-6 pt-4">
@@ -360,7 +354,7 @@ const AllNFTs: NextPage = () => {
         width={500}
         className="purchase-modal"
         centered
-        footer={null} // 移除默认�� footer，使用自定义的
+        footer={null} // 移除默认 footer，使用自定义的
       >
         {selectedNft && (
           <div className="space-y-6 py-4">
@@ -418,13 +412,14 @@ const AllNFTs: NextPage = () => {
                   <svg className="w-5 h-5 text-purple-500" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
                   </svg>
-                  <span className="text-xl font-bold text-white">{getPriceById(selectedNft.id)} ETH</span>
+                  <span className="text-xl font-bold text-white">
+                    {selectedNft.PurchasePrice} ETH
+                  </span>
                 </div>
               </div>
 
-              {/* 添加余额不足提示 */}
               {balance && selectedNft && 
-                parseFloat(formatEther(balance.value)) < parseFloat(getPriceById(selectedNft.id)) && (
+                parseFloat(formatEther(balance.value)) < parseFloat(selectedNft.PurchasePrice) && (
                 <div className="px-4 py-2 bg-red-500/10 rounded-lg">
                   <p className="text-red-400 text-sm">
                     余额不足，请确保有足够的 ETH 完成购买
@@ -444,17 +439,17 @@ const AllNFTs: NextPage = () => {
               <button
                 onClick={handlePurchase}
                 disabled={!connectedAddress || (balance && 
-                  parseFloat(formatEther(balance.value)) < parseFloat(getPriceById(selectedNft.id)))}
+                  parseFloat(formatEther(balance.value)) < parseFloat(selectedNft.PurchasePrice))}
                 className={`flex-1 px-6 py-3 rounded-xl font-bold
                   ${!connectedAddress || (balance && 
-                    parseFloat(formatEther(balance.value)) < parseFloat(getPriceById(selectedNft.id)))
+                    parseFloat(formatEther(balance.value)) < parseFloat(selectedNft.PurchasePrice))
                     ? 'bg-gray-600 cursor-not-allowed'
                     : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90'
                   } text-white transition-all`}
               >
                 {!connectedAddress 
                   ? '请先连接钱包'
-                  : balance && parseFloat(formatEther(balance.value)) < parseFloat(getPriceById(selectedNft.id))
+                  : balance && parseFloat(formatEther(balance.value)) < parseFloat(selectedNft.PurchasePrice)
                     ? '余额不足'
                     : '确认购买'
                 }

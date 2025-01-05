@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "antd";
+import axios from "axios";
+import { notification } from "antd";
 import { Address } from "~~/components/scaffold-eth";
 
 // 添加点赞相关的接口
@@ -27,56 +29,103 @@ const NFTCarousel: React.FC<NFTCarouselProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const itemsPerSlide = 3;
 
-  // 创建一个包含重复项的数组，用于无缝轮播
-  const extendedNFTs = [...nfts, ...nfts, ...nfts];
+  // 只在需要无缝轮播时添加必要的重复项
+  const extendedNFTs = useMemo(() => {
+    if (nfts.length <= itemsPerSlide) {
+      return nfts;
+    }
+    // 只添加一组额外的 NFTs 用于无缝轮播
+    return [...nfts, ...nfts.slice(0, itemsPerSlide)];
+  }, [nfts, itemsPerSlide]);
 
   // 添加点赞状态
-  const [likes, setLikes] = useState<NFTLikes>(() => {
-    const savedLikes = localStorage.getItem('nftLikes');
-    return savedLikes ? JSON.parse(savedLikes) : {};
-  });
+  const [likes, setLikes] = useState<NFTLikes>({});
 
-  // 保存点赞数据到localStorage
+  // 获取收藏数据
   useEffect(() => {
-    localStorage.setItem('nftLikes', JSON.stringify(likes));
-  }, [likes]);
-
-  // 处理点赞
-  const handleLike = (nftId: string) => {
-    if (!connectedAddress) return;
-
-    setLikes(prevLikes => {
-      const currentNftLikes = prevLikes[nftId] || { count: 0, users: [] };
-      const hasLiked = currentNftLikes.users.includes(connectedAddress);
-
-      if (hasLiked) {
-        // 取消点赞
-        return {
-          ...prevLikes,
-          [nftId]: {
-            count: currentNftLikes.count - 1,
-            users: currentNftLikes.users.filter(user => user !== connectedAddress)
+    const fetchFavorites = async () => {
+      try {
+        const response = await axios.get('http://localhost:4000/getFavorites');
+        const favorites = response.data.nfts;
+        
+        // 转换数据格式
+        const likesData: NFTLikes = {};
+        favorites.forEach((fav: any) => {
+          const nftId = fav.nft_id.toString();
+          if (!likesData[nftId]) {
+            likesData[nftId] = {
+              count: 0,
+              users: []
+            };
           }
-        };
-      } else {
-        // 添加点赞
-        return {
-          ...prevLikes,
-          [nftId]: {
-            count: currentNftLikes.count + 1,
-            users: [...currentNftLikes.users, connectedAddress]
-          }
-        };
+          likesData[nftId].count++;
+          likesData[nftId].users.push(fav.owner);
+        });
+        
+        setLikes(likesData);
+      } catch (error) {
+        console.error("Error fetching favorites:", error);
       }
-    });
+    };
+
+    fetchFavorites();
+  }, []);
+
+  // 处理点赞/取消点赞
+  const handleLike = async (nftId: string) => {
+    if (!connectedAddress) {
+      notification.error({ message: "请先连接钱包" });
+      return;
+    }
+
+    try {
+      const hasUserLiked = likes[nftId]?.users.includes(connectedAddress);
+
+      if (hasUserLiked) {
+        // 取消收藏
+        await axios.delete(`http://localhost:4000/removeFavorite/${nftId}`);
+        
+        setLikes(prevLikes => ({
+          ...prevLikes,
+          [nftId]: {
+            count: (prevLikes[nftId]?.count || 1) - 1,
+            users: (prevLikes[nftId]?.users || []).filter(user => user !== connectedAddress)
+          }
+        }));
+
+        notification.success({ message: "已取消收藏" });
+      } else {
+        // 添加收藏
+        await axios.post('http://localhost:4000/addFavorite', {
+          nftId: nftId,
+          owner: connectedAddress
+        });
+
+        setLikes(prevLikes => ({
+          ...prevLikes,
+          [nftId]: {
+            count: (prevLikes[nftId]?.count || 0) + 1,
+            users: [...(prevLikes[nftId]?.users || []), connectedAddress]
+          }
+        }));
+
+        notification.success({ message: "收藏成功" });
+      }
+    } catch (error) {
+      console.error("Error updating favorite:", error);
+      notification.error({ 
+        message: "操作失败", 
+        description: error instanceof Error ? error.message : "未知错误" 
+      });
+    }
   };
 
-  // 检查是否已点赞
+  // 检查是否已收藏
   const hasLiked = (nftId: string) => {
     return likes[nftId]?.users.includes(connectedAddress || '');
   };
 
-  // 获取点赞数
+  // 获取收藏数
   const getLikeCount = (nftId: string) => {
     return likes[nftId]?.count || 0;
   };
@@ -101,13 +150,15 @@ const NFTCarousel: React.FC<NFTCarouselProps> = ({
 
   // 处理过渡结束时的位置重置
   const handleTransitionEnd = () => {
-    if (currentIndex >= nfts.length * 2) {
-      setCurrentIndex(nfts.length);
-    }
-    if (currentIndex < nfts.length) {
-      setCurrentIndex(currentIndex + nfts.length);
+    if (currentIndex >= nfts.length) {
+      setCurrentIndex(0);
     }
   };
+
+  // 添加调试日志
+  useEffect(() => {
+    console.log("NFTs data:", nfts);
+  }, [nfts]);
 
   // 在渲染NFT卡片时修改点赞按钮部分
   const renderNFTCard = (nft: any, index: number) => (
@@ -164,26 +215,28 @@ const NFTCarousel: React.FC<NFTCarouselProps> = ({
           </div>
         </div>
 
-                  {/* NFT信息 */}
-                  <div className="p-4">
-                    <h3 className="text-lg font-bold text-white mb-2 truncate">{nft.name}</h3>
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-purple-400 text-sm">Current Bid</span>
-                        <span className="text-white font-bold text-sm">{getPriceById(nft.id)} ETH</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span className="text-gray-400 text-xs">Live</span>
-                      </div>
-                    </div>
+        {/* NFT信息 */}
+        <div className="p-4">
+          <h3 className="text-lg font-bold text-white mb-2 truncate">{nft.name}</h3>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-purple-400 text-sm">当前出价</span>
+              <span className="text-white font-bold text-sm">
+                {nft.PurchasePrice ? `${nft.PurchasePrice} ETH` : '不适用'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-gray-400 text-xs">住</span>
+            </div>
+          </div>
 
           <Button
             onClick={() => onOpenModal(nft)}
             disabled={!connectedAddress}
             className="w-full bg-gradient-to-r from-purple-500 to-pink-500 border-none text-white font-bold py-1.5 text-sm rounded-xl hover:opacity-90 transition-opacity"
           >
-            {connectedAddress ? "Place Bid" : "Connect Wallet"}
+            {connectedAddress ? "出 价" : "连接钱包"}
           </Button>
         </div>
       </div>
@@ -204,7 +257,7 @@ const NFTCarousel: React.FC<NFTCarouselProps> = ({
           }}
           onTransitionEnd={handleTransitionEnd}
         >
-          {extendedNFTs.map(renderNFTCard)}
+          {extendedNFTs.map((nft, index) => renderNFTCard(nft, index))}
         </div>
       </div>
 
@@ -212,7 +265,7 @@ const NFTCarousel: React.FC<NFTCarouselProps> = ({
       <button
         onClick={() => {
           const newIndex = currentIndex - 1;
-          setCurrentIndex(newIndex < nfts.length ? newIndex + nfts.length : newIndex);
+          setCurrentIndex(newIndex < 0 ? nfts.length - 1 : newIndex);
           setIsPaused(true);
         }}
         className="absolute left-0 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-r-xl p-2 backdrop-blur-sm transition-colors h-20 flex items-center"
@@ -224,7 +277,7 @@ const NFTCarousel: React.FC<NFTCarouselProps> = ({
       <button
         onClick={() => {
           const newIndex = currentIndex + 1;
-          setCurrentIndex(newIndex >= nfts.length * 2 ? nfts.length : newIndex);
+          setCurrentIndex(newIndex >= nfts.length ? 0 : newIndex);
           setIsPaused(true);
         }}
         className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-l-xl p-2 backdrop-blur-sm transition-colors h-20 flex items-center"
@@ -240,11 +293,11 @@ const NFTCarousel: React.FC<NFTCarouselProps> = ({
           <button
             key={index}
             onClick={() => {
-              setCurrentIndex(nfts.length + (index * itemsPerSlide));
+              setCurrentIndex(index * itemsPerSlide);
               setIsPaused(true);
             }}
             className={`w-1.5 h-1.5 rounded-full transition-colors ${
-              Math.floor((currentIndex - nfts.length) / itemsPerSlide) === index
+              Math.floor(currentIndex / itemsPerSlide) === index
                 ? 'bg-purple-500'
                 : 'bg-gray-600'
             }`}

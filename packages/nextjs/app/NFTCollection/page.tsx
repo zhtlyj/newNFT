@@ -5,6 +5,7 @@ import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MyHoldings } from "~~/components/simpleNFT";
 import { useScaffoldContractRead } from "~~/hooks/scaffold-eth";
+import axios from "axios";
 
 interface NftInfo {
   image: string;
@@ -14,6 +15,8 @@ interface NftInfo {
   owner: string;
   price: string;
   description: string;
+  Shelves: number;
+  PurchasePrice: string;
   CID?: string;
 }
 
@@ -23,6 +26,8 @@ const NFTCollection: NextPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('Buy Now');
   const [sortType, setSortType] = useState<string>('newest');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100 });
 
   const { data: tokenIdCounter } = useScaffoldContractRead({
     contractName: "YourCollectible",
@@ -32,29 +37,54 @@ const NFTCollection: NextPage = () => {
   });
 
   useEffect(() => {
-    const storedNFTs = localStorage.getItem("createdNFTs");
-    if (storedNFTs) {
-      setCreatedNFTs(JSON.parse(storedNFTs));
-    }
+    const fetchNFTs = async () => {
+      try {
+        // 获取所有 NFTs
+        const response = await axios.get(`http://localhost:4000/getMyNfts/${connectedAddress}`);
+        const nfts = response.data.nfts.map((nft: any) => ({
+          image: nft.nft_image,
+          id: nft.nft_id,
+          name: nft.nft_name,
+          attributes: nft.attributes,
+          owner: nft.owner,
+          price: nft.price,
+          description: nft.description,
+          Shelves: nft.Shelves,
+          PurchasePrice: nft.PurchasePrice,
+          CID: nft.CID
+        }));
+        setCreatedNFTs(nfts);
+      } catch (error) {
+        console.error("Error fetching NFTs:", error);
+      }
+    };
+
+    fetchNFTs();
   }, [connectedAddress]);
 
   const filteredNFTs = useMemo(() => {
     let filtered = [...createdNFTs];
     
     if (selectedCategory) {
-      filtered = filtered.filter(nft => 
-        nft.attributes.some(attr => 
-          attr.trait_type === 'category' && attr.value === selectedCategory
-        )
-      );
+      filtered = filtered.filter(nft => {
+        const categoryAttribute = nft.attributes?.find(
+          (attr: any) => attr.trait_type === 'category'
+        );
+        return categoryAttribute?.value === selectedCategory;
+      });
     }
 
     if (selectedType === 'Buy Now') {
       filtered = filtered.filter(nft => nft.price !== '');
     }
 
+    filtered = filtered.filter(nft => {
+      const price = parseFloat(nft.price) || 0;
+      return price >= priceRange.min && price <= priceRange.max;
+    });
+
     return filtered;
-  }, [createdNFTs, selectedCategory, selectedType]);
+  }, [createdNFTs, selectedCategory, selectedType, priceRange]);
 
   // 排序函数
   const sortedNFTs = useMemo(() => {
@@ -102,23 +132,87 @@ const NFTCollection: NextPage = () => {
     return isNaN(numPrice) ? 'NaN' : numPrice.toFixed(2);
   };
 
+  // 新增：计算可用的分类
+  const availableCategories = useMemo(() => {
+    const categories = new Set<string>();
+    createdNFTs.forEach(nft => {
+      const category = nft.attributes.find(attr => attr.trait_type === 'category')?.value;
+      if (category) {
+        categories.add(category);
+      }
+    });
+    return Array.from(categories);
+  }, [createdNFTs]);
+
+  // 添加搜索处理函数
+  const handleSearch = async (value: string) => {
+    try {
+      if (value.trim()) {
+        const response = await axios.get(`http://localhost:4000/NftSearch/${encodeURIComponent(value)}`);
+        const searchResults = response.data.map((nft: any) => ({
+          image: nft.nft_image,
+          id: nft.nft_id,
+          name: nft.nft_name,
+          attributes: nft.attributes,
+          owner: nft.owner,
+          price: nft.price,
+          description: nft.description,
+          Shelves: nft.Shelves,
+          PurchasePrice: nft.PurchasePrice,
+          CID: nft.CID
+        }));
+        setCreatedNFTs(searchResults);
+      } else {
+        // 如果搜索框为空，重新获取所有NFTs
+        const response = await axios.get(`http://localhost:4000/getMyNfts/${connectedAddress}`);
+        const nfts = response.data.nfts.map((nft: any) => ({
+          image: nft.nft_image,
+          id: nft.nft_id,
+          name: nft.nft_name,
+          attributes: nft.attributes,
+          owner: nft.owner,
+          price: nft.price,
+          description: nft.description,
+          Shelves: nft.Shelves,
+          PurchasePrice: nft.PurchasePrice,
+          CID: nft.CID
+        }));
+        setCreatedNFTs(nfts);
+      }
+    } catch (error) {
+      console.error("Error searching NFTs:", error);
+    }
+  };
+
+  const handlePriceRangeChange = (min: number, max: number) => {
+    setPriceRange({ min, max });
+  };
+
   return (
     <div className="min-h-screen bg-[#1a1147]">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* 搜索框 - 进一步减小尺寸 */}
+        {/* 搜索框 */}
         <div className="mb-3">
           <h1 className="text-lg font-bold text-white mb-1.5">Search</h1>
           <div className="relative max-w-md">
             <input
               type="text"
               placeholder="Search Products"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch(searchTerm);
+                }
+              }}
               className="w-full bg-[#231564] border border-[#3d2b85] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 pl-8"
             />
             <svg
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 cursor-pointer"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              onClick={() => handleSearch(searchTerm)}
             >
               <path
                 strokeLinecap="round"
@@ -137,7 +231,7 @@ const NFTCollection: NextPage = () => {
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-[#9d8ec4] mb-4">NFT Category</h2>
               <div className="space-y-1">
-                {['Art', 'Music', 'Trading Cards', 'Virtual world', 'Doodles', 'Sports', 'Photography', 'Utility'].map((category) => (
+                {availableCategories.map((category) => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category === selectedCategory ? '' : category)}
@@ -185,12 +279,34 @@ const NFTCollection: NextPage = () => {
             <div>
               <h2 className="text-2xl font-bold text-[#9d8ec4] mb-4">Filter By Price</h2>
               <div className="px-4">
-                <div className="w-full h-1 bg-[#231564] rounded-full">
-                  <div className="w-1/2 h-full bg-purple-500 rounded-full"></div>
-                </div>
-                <div className="flex justify-between mt-2">
-                  <span className="text-gray-400">0 ETH</span>
-                  <span className="text-gray-400">10 ETH</span>
+                <div className="space-y-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={priceRange.max}
+                    onChange={(e) => handlePriceRangeChange(priceRange.min, parseFloat(e.target.value))}
+                    className="w-full h-1 bg-[#231564] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-purple-500 [&::-webkit-slider-thumb]:rounded-full"
+                  />
+                  <div className="flex justify-between">
+                    <input
+                      type="number"
+                      min="0"
+                      max={priceRange.max}
+                      value={priceRange.min}
+                      onChange={(e) => handlePriceRangeChange(parseFloat(e.target.value), priceRange.max)}
+                      className="w-20 bg-[#231564] border border-[#3d2b85] rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500"
+                    />
+                    <input
+                      type="number"
+                      min={priceRange.min}
+                      max="100"
+                      value={priceRange.max}
+                      onChange={(e) => handlePriceRangeChange(priceRange.min, parseFloat(e.target.value))}
+                      className="w-20 bg-[#231564] border border-[#3d2b85] rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
