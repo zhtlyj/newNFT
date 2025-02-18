@@ -104,7 +104,7 @@ const BlindBox: NextPage = () => {
 
     } catch (error) {
       console.error("开箱失败:", error);
-      notification.error({ message: "开箱失败，请重试" });
+      notification.error({ message: "开箱失败，请重试 " });
       setIsOpening(false);
       setIsKeyAnimating(false);
       setIsSpinning(false);

@@ -34,7 +34,7 @@ const mantleSepoliaConfig = {
 
 const scaffoldConfig = {
   // 使用新的 Mantle Sepolia 配置
-  targetNetworks: [chains.hardhat,mantleSepoliaConfig, chains.sepolia],
+  targetNetworks: [mantleSepoliaConfig, chains.sepolia],
 
   // 其他配置保持不变
   pollingInterval: 30000,
