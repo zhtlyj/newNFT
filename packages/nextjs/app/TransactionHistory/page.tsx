@@ -224,6 +224,27 @@ const TransactionHistory: NextPage = () => {
     };
   };
 
+  // 添加分页相关的状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8; // 每页显示12条数据
+
+  // 计算分页数据
+  const paginatedEvents = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return allEvents?.slice(startIndex, endIndex) || [];
+  }, [allEvents, currentPage]);
+
+  // 计算总页数
+  const totalPages = Math.ceil((allEvents?.length || 0) / itemsPerPage);
+
+  // 处理页码变化
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // 滚动到页面顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center mt-10">
@@ -305,14 +326,14 @@ const TransactionHistory: NextPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#3d2b85]">
-                {!allEvents || allEvents.length === 0 ? (
+                {!paginatedEvents || paginatedEvents.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       暂无交易记录
                     </td>
                   </tr>
                 ) : (
-                  allEvents?.map((event, index) => {
+                  paginatedEvents.map((event, index) => {
                     // 添加日志
                     logEventDetails(event);
                     
@@ -393,6 +414,60 @@ const TransactionHistory: NextPage = () => {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* 添加分页控制 */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex justify-center">
+            <div className="flex space-x-2">
+              {/* 上一页按钮 */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${currentPage === 1
+                    ? 'bg-[#1a1147] text-gray-500 cursor-not-allowed'
+                    : 'bg-[#231564] text-white hover:bg-purple-500'
+                  }`}
+              >
+                上一页
+              </button>
+
+              {/* 页码按钮 */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${currentPage === page
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-[#231564] text-white hover:bg-purple-500'
+                    }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              {/* 下一页按钮 */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${currentPage === totalPages
+                    ? 'bg-[#1a1147] text-gray-500 cursor-not-allowed'
+                    : 'bg-[#231564] text-white hover:bg-purple-500'
+                  }`}
+              >
+                下一页
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 分页信息 */}
+        <div className="mt-4 text-center text-gray-400 text-sm">
+          第 {currentPage} 页，共 {totalPages} 页
+          （显示 {paginatedEvents.length} 条，共 {allEvents?.length || 0} 条记录）
         </div>
 
         {/* 页脚说明 */}

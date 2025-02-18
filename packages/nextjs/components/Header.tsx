@@ -33,11 +33,6 @@ export const menuLinks: HeaderMenuLink[] = [
     icon: <PhotoIcon className="h-4 w-4" />,
   },
 
-
-
-
-
- 
   {
     label: "我的NFT",
     href: "/NFTCollection",
@@ -77,6 +72,21 @@ export const menuLinks: HeaderMenuLink[] = [
   {
     label: "NFT市场",
     href: "/NFTMarket",
+    icon: <PhotoIcon className="h-4 w-4" />,
+  },
+  {
+    label: "NFT元宇宙",
+    href: "/VR",
+    icon: <PhotoIcon className="h-4 w-4" />,
+  },
+  {
+    label: "聊天室",
+    href: "/ChatRoom",
+    icon: <PhotoIcon className="h-4 w-4" />,
+  },
+  {
+    label: "NFT展厅",
+    href: "/NFTShowroom",
     icon: <PhotoIcon className="h-4 w-4" />,
   },
 ];

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
-import { useScaffoldContractRead } from "~~/hooks/scaffold-eth";
-import { notification, message } from "antd";
+import { notification } from "antd";
 import { useRouter } from "next/navigation";
 
 interface NftInfo {
@@ -13,6 +12,7 @@ interface NftInfo {
   price: string;
   description: string;
   CID?: string;
+  isListed: boolean;
 }
 
 interface MyHoldingsProps {
@@ -41,37 +41,60 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
   }, []);
 
   // 处理上架/下架
-  const handleListToggle = async (checked: boolean, id: number) => {
-    const storedNFTs = JSON.parse(localStorage.getItem("createdNFTs") || "[]");
-    let allNFTs = JSON.parse(localStorage.getItem("allNFTs") || "[]");
-
-    if (checked) {
-      if (!listingPrice[id]) {
-        message.error("请设置价格");
+  const handleListToggle = async (checked: boolean, nft: NftInfo) => {
+    try {
+      if (checked && !listingPrice[nft.id]) {
+        notification.error({ message: "请设置价格" });
         return;
       }
-      const listedNFTs = JSON.parse(localStorage.getItem("listedNFTs") || "[]");
-      listedNFTs.push({ id, price: listingPrice[id] });
-      localStorage.setItem("listedNFTs", JSON.stringify(listedNFTs));
 
-      const nft = storedNFTs.find((nft: NftInfo) => nft.id === id);
-      if (nft) {
-        allNFTs.push({ ...nft, isListed: true });
-        localStorage.setItem("allNFTs", JSON.stringify(allNFTs));
+      console.log('准备更新NFT状态:', {
+        id: nft.id,
+        isListed: checked,
+        price: checked ? listingPrice[nft.id] : '',
+        owner: nft.owner
+      });
+
+      // 发送更新请求到数据库
+      const response = await fetch('/api/Nft', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: nft.id,
+          isListed: checked,
+          price: checked ? listingPrice[nft.id] : '',
+          owner: nft.owner
+        }),
+      });
+
+      const data = await response.json();
+      console.log('服务器响应:', data);
+
+      if (!response.ok) {
+        throw new Error(data.message || '操作失败');
       }
 
-      message.success("上架成功");
-    } else {
-      const listedNFTs = JSON.parse(localStorage.getItem("listedNFTs") || "[]");
-      const updatedNFTs = listedNFTs.filter((item: { id: number }) => item.id !== id);
-      localStorage.setItem("listedNFTs", JSON.stringify(updatedNFTs));
+      // 更新本地状态
+      setIsListed(prev => ({ ...prev, [nft.id]: checked }));
+      
+      notification.success({
+        message: checked ? '上架成功' : '下架成功',
+        description: checked 
+          ? `NFT #${nft.id} 已上架，价格: ${listingPrice[nft.id]} ETH`
+          : `NFT #${nft.id} 已下架`
+      });
 
-      allNFTs = allNFTs.filter((nft: NftInfo) => nft.id !== id);
-      localStorage.setItem("allNFTs", JSON.stringify(allNFTs));
-
-      message.success("下架成功");
+    } catch (error) {
+      console.error('操作失败:', error);
+      notification.error({
+        message: checked ? '上架失败' : '下架失败',
+        description: error instanceof Error ? error.message : '未知错误'
+      });
+      // 恢复之前的状态
+      setIsListed(prev => ({ ...prev, [nft.id]: !checked }));
     }
-    setIsListed(prev => ({ ...prev, [id]: checked }));
   };
 
   // 计算当前页的NFTs
@@ -141,7 +164,7 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
                       type="checkbox"
                       className="sr-only peer"
                       checked={isListed[nft.id] || false}
-                      onChange={(e) => handleListToggle(e.target.checked, nft.id)}
+                      onChange={(e) => handleListToggle(e.target.checked, nft)}
                     />
                     <div className="w-8 h-4 bg-[#1a1147] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
                   </label>

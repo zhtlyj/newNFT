@@ -46,7 +46,7 @@ contract YourCollectible is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable 
         return tokenId; // 返回NFT ID
     }
 
-    // 覆盖 _baseURI 函数，返回一个空字符串
+    // 覆������� _baseURI 函数，返回一个空字符串
     function _baseURI() internal pure override returns (string memory) {
         return "";
     }
@@ -218,36 +218,79 @@ contract YourCollectible is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable 
 
 	 // 覆盖 buyNFT 函数，增加版税支付逻辑
 	function buyNFT(uint256 tokenId) public payable {
+		// 1. 状态检查
 		uint256 price = tokenPrices[tokenId];
-		require(price > 0, unicode"该版权或NFT还未出售");
-		require(msg.value == price, unicode"发送了错误的价格或支付金额不正确");
+		require(price > 0, unicode"该NFT未在售");
+		require(msg.value == price, unicode"支付金额不正确");
+		require(tokenId <= tokenIdCounter.current(), unicode"NFT不存在");
 
+		// 2. 获取相关地址
 		address seller = ownerOf(tokenId);
 		address creator = _creators[tokenId];
-		uint256 royaltyAmount = (msg.value * royaltyPercentage) / 100; // 计算版税金额
-		uint256 sellerAmount = msg.value - royaltyAmount;
-		_transfer(seller, msg.sender, tokenId);
-		// 支付给创作者版税
-		payable(creator).transfer(royaltyAmount);
-		// 剩余金额支付给卖家
-		payable(seller).transfer(sellerAmount);
+		require(seller != msg.sender, unicode"不能购买自己的NFT");
+		require(seller != address(0), unicode"NFT所有者地址无效");
 
-		// 分红逻辑
-		distributeProfits(msg.value);
-		//历史交易记录逻辑
-		// 记录交易历史
-		tokenTransactionHistory[tokenId].push(
-			TransactionHistory({
-				seller: seller,
-				buyer: msg.sender,
-				price: msg.value,
-				timestamp: block.timestamp
-			})
-		);
-       // 支付卖家
-		payable(seller).transfer(msg.value);
-		//重置令牌价格
-		tokenPrices[tokenId] = 0;
+		// 3. 计算金额分配
+		uint256 royaltyAmount = (msg.value * royaltyPercentage) / 100;
+		uint256 sellerAmount = msg.value - royaltyAmount;
+
+		// 4. 创建交易记录
+		TransactionHistory memory txHistory = TransactionHistory({
+			seller: seller,
+			buyer: msg.sender,
+			price: msg.value,
+			timestamp: block.timestamp
+		});
+
+		// 5. 执行交易
+		bool transferSuccess = false;
+		bool paymentSuccess = false;
+
+		try {
+			// 5.1 转移 NFT
+			_transfer(seller, msg.sender, tokenId);
+			transferSuccess = true;
+
+			// 5.2 支付版税
+			(bool royaltySent,) = payable(creator).call{value: royaltyAmount}("");
+			require(royaltySent, unicode"版税支付失败");
+
+			// 5.3 支付卖家
+			(bool sellerPaid,) = payable(seller).call{value: sellerAmount}("");
+			require(sellerPaid, unicode"卖家支付失败");
+
+			paymentSuccess = true;
+
+			// 5.4 执行分红
+			distributeProfits(msg.value);
+
+			// 5.5 记录交易历史
+			tokenTransactionHistory[tokenId].push(txHistory);
+
+			// 5.6 重置价格
+			tokenPrices[tokenId] = 0;
+
+			// 5.7 触发购买成功事件
+			emit PurchaseNFT(
+				tokenId,
+				msg.sender,
+				seller,
+				msg.value,
+				block.timestamp
+			);
+		} catch Error(string memory reason) {
+			// 处理已知错误
+			revert(string(abi.encodePacked(unicode"交易失败: ", reason)));
+		} catch {
+			// 处理未知错误
+			if (!transferSuccess) {
+				revert(unicode"NFT转移失败");
+			}
+			if (!paymentSuccess) {
+				revert(unicode"支付失败");
+			}
+			revert(unicode"交易执行失败");
+		}
 	}
 		// 修改版税百分比
 	function setRoyaltyPercentage(uint256 percentage) public onlyOwner {
@@ -302,7 +345,7 @@ contract YourCollectible is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable 
 			unicode"出价低于当前最高出价"
 		);
 
-		// 退还之前的最高出价者
+		// 退还之前的最高出价��
 		if (auction.highestBidder != address(0)) {
 			payable(auction.highestBidder).transfer(auction.highestBid);
 		}
@@ -498,7 +541,7 @@ contract YourCollectible is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable 
 	}
    // 随机从盲盒中获取NFT
 	function buyMysteryBox() public payable returns (uint256) {
-		require(msg.value == mysteryBoxPrice, unicode"支付的价格不正确");
+		require(msg.value == mysteryBoxPrice, unicode"��付的价格不正确");
 		require(availableTokens.length > 0, unicode"没有可用的NFT");
 		// 随机选择一个NFT
 		uint256 randomIndex = uint256(

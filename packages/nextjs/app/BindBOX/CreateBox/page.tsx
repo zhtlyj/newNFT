@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
-import { notification, Button, Input, Table, Tag } from "antd";
+import { notification, Button, Input, Table, Tag, message } from "antd";
 import { useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
 import { parseEther } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,6 +22,8 @@ const CreateBox: NextPage = () => {
   const [selectedNFTs, setSelectedNFTs] = useState<NFTItem[]>([]);
   const [availableNFTs, setAvailableNFTs] = useState<NFTItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isPriceSet, setIsPriceSet] = useState<boolean | null>(null);
+  const [priceSetupCompleted, setPriceSetupCompleted] = useState(false);
 
   // 读取当前盲盒价格
   const { data: currentPrice } = useScaffoldContractRead({
@@ -43,39 +45,117 @@ const CreateBox: NextPage = () => {
     args: [BigInt(0)],
   });
 
-  // 从localStorage加载NFT数据
-  useEffect(() => {
-    const storedNFTs = localStorage.getItem("createdNFTs");
-    if (storedNFTs) {
-      const nfts: NFTItem[] = JSON.parse(storedNFTs).map((nft: NFTItem) => ({
-        ...nft,
-        selected: false,
-      }));
-      setAvailableNFTs(nfts);
+  // 从数据库获取NFT数据
+  const fetchNFTs = async () => {
+    try {
+      const response = await fetch('/api/Nft');
+      
+      if (!response.ok) {
+        throw new Error('获取NFT数据失败');
+      }
+
+      const data = await response.json();
+      
+      if (!data.nfts || !Array.isArray(data.nfts)) {
+        throw new Error('NFT数据格式错误');
+      }
+
+      // 过滤出当前用户拥有的NFT
+      const userNFTs = data.nfts
+        .filter((nft: any) => nft.owner?.toLowerCase() === connectedAddress?.toLowerCase())
+        .map((nft: any) => ({
+          id: nft.id,
+          name: nft.name,
+          image: nft.image,
+          owner: nft.owner,
+          selected: false
+        }));
+
+      console.log('获取到的用户NFT:', userNFTs);
+      setAvailableNFTs(userNFTs);
+    } catch (error) {
+      console.error('获取NFT数据失败:', error);
+      notification.error({
+        message: '获取NFT数据失败',
+        description: error instanceof Error ? error.message : '未知错误'
+      });
     }
-  }, []);
+  };
+
+  // 在组件加载和地址变更时获取数据
+  useEffect(() => {
+    if (connectedAddress) {
+      fetchNFTs();
+    }
+  }, [connectedAddress]);
 
   // 添加动画状态
   const [isAnimating, setIsAnimating] = useState(false);
   const [animatingNFT, setAnimatingNFT] = useState<NFTItem | null>(null);
 
-  // 处理价格设置
+  // 修改价格检查逻辑
+  useEffect(() => {
+    const checkPrice = async () => {
+      try {
+        if (currentPrice !== undefined) {
+          const priceValue = Number(currentPrice);
+          console.log('Current box price:', priceValue);
+          setIsPriceSet(priceValue > 0);
+        }
+      } catch (error) {
+        console.error('Error checking price:', error);
+        setIsPriceSet(false);
+      }
+    };
+
+    checkPrice();
+  }, [currentPrice]);
+
+  // 修改价格设置处理函数
   const handleSetPrice = async () => {
     try {
       if (!price) {
-        notification.error({ message: "请输入价格" });
+        message.error("请输入价格");
         return;
       }
 
       setLoading(true);
       const priceInWei = parseEther(price);
-      await setMysteryBoxPrice({ args: [priceInWei] });
+      
+      // 显示处理中消息
+      message.loading("交易处理中...", 0);
 
-      notification.success({ message: "价格设置成功" });
-      setPrice("");
+      // 调用合约设置价格
+      const result = await setMysteryBoxPrice({ args: [priceInWei] });
+      
+      if (result) {
+        // 清除所有消息
+        message.destroy();
+        
+        message.success("价格设置成功，请等待区块确认");
+        setPrice("");
+        setPriceSetupCompleted(true);
+        
+        // 延迟检查价格更新
+        setTimeout(async () => {
+          try {
+            const response = await fetch('/api/Nft/box-price');
+            const data = await response.json();
+            if (data.price && Number(data.price) > 0) {
+              message.success("价格更新已确认，现在可以添加NFT到盲盒了");
+            }
+          } catch (error) {
+            console.error('检查价格更新失败:', error);
+          }
+        }, 5000); // 5秒后检查
+      }
+
     } catch (error) {
       console.error("设置价格失败:", error);
-      notification.error({ message: "设置价格失败" });
+      // 清除所有消息
+      message.destroy();
+      message.error(error instanceof Error ? error.message : "设置价格失败");
+      setPriceSetupCompleted(false);
     } finally {
       setLoading(false);
     }
@@ -97,7 +177,6 @@ const CreateBox: NextPage = () => {
         setAnimatingNFT(nft);
         setIsAnimating(true);
         
-        // 等待动画完成
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // 调用合约
@@ -112,8 +191,10 @@ const CreateBox: NextPage = () => {
         description: `已添加 ${selectedIds.length} 个NFT到盲盒` 
       });
       
+      // 重置选择状态
       setSelectedNFTs([]);
-      setAvailableNFTs(prev => prev.map(nft => ({ ...nft, selected: false })));
+      // 重新获取NFT列表
+      await fetchNFTs();
       setAnimatingNFT(null);
     } catch (error) {
       console.error("添加NFT失败:", error);
@@ -145,8 +226,8 @@ const CreateBox: NextPage = () => {
       title: "状态",
       key: "status",
       render: (nft: NFTItem) => (
-        <Tag color={nft.selected ? "purple" : "default"}>
-          {nft.selected ? "已选择" : "未选择"}
+        <Tag color={!isPriceSet ? "default" : nft.selected ? "purple" : "default"}>
+          {!isPriceSet ? "请先设置价格" : nft.selected ? "已选择" : "未选择"}
         </Tag>
       ),
     },
@@ -229,44 +310,63 @@ const CreateBox: NextPage = () => {
           </div>
 
           {/* NFT选择区域 */}
-          <div className="bg-[#231564]/50 rounded-xl p-8 backdrop-blur-sm border border-[#3d2b85] hover:border-purple-500 transition-colors relative group">
+          <div className="bg-[#231564]/50 rounded-xl p-8 backdrop-blur-sm border border-[#3d2b85] hover:border-purple-500 transition-colors relative group mt-8">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"></div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                NFT Selection
-              </h2>
-              <Button
-                onClick={handleAddNFTs}
-                loading={loading}
-                disabled={selectedNFTs.length === 0}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 border-none h-[40px] min-w-[180px]"
-              >
-                Add Selected NFTs ({selectedNFTs.length})
-              </Button>
-            </div>
+            
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              NFT Selection
+            </h2>
 
-            <Table
-              dataSource={availableNFTs}
-              columns={columns}
-              rowKey="id"
-              pagination={false}
-              onRow={(record) => ({
-                onClick: () => {
-                  const newSelected = availableNFTs.map(nft => 
-                    nft.id === record.id ? { ...nft, selected: !nft.selected } : nft
-                  );
-                  setAvailableNFTs(newSelected);
-                  setSelectedNFTs(newSelected.filter(nft => nft.selected));
-                },
-                className: `cursor-pointer transition-all hover:bg-[#3d2b85]/30 ${
-                  record.selected ? 'bg-[#3d2b85]/50 scale-[1.02]' : ''
-                }`,
-              })}
-              className="[&_.ant-table]:bg-transparent [&_.ant-table-cell]:text-gray-300 [&_.ant-table-row:hover>td]:bg-transparent"
-            />
+            {!priceSetupCompleted ? (
+              // 未完成价格设置状态
+              <div className="text-center py-8">
+                <div className="text-gray-400 mb-4">请先设置盲盒价格</div>
+                <div className="text-sm text-purple-400">设置价格后即可选择NFT添加到盲盒</div>
+              </div>
+            ) : (
+              // 已完成价格设置状态，显示NFT选择表格
+              <>
+                <Table
+                  dataSource={availableNFTs}
+                  columns={columns}
+                  rowKey="id"
+                  pagination={false}
+                  onRow={(record) => ({
+                    onClick: () => {
+                      const newSelected = availableNFTs.map(nft => 
+                        nft.id === record.id ? { ...nft, selected: !nft.selected } : nft
+                      );
+                      setAvailableNFTs(newSelected);
+                      setSelectedNFTs(newSelected.filter(nft => nft.selected));
+                    },
+                    className: `cursor-pointer transition-all ${
+                      record.selected ? 'bg-[#3d2b85]/50 scale-[1.02]' : 'hover:bg-[#3d2b85]/30'
+                    }`,
+                  })}
+                  className="[&_.ant-table]:bg-transparent [&_.ant-table-cell]:text-gray-300 [&_.ant-table-row:hover>td]:bg-transparent"
+                />
+
+                {/* 添加按钮 */}
+                <div className="mt-6 flex justify-end">
+                  <Button
+                    onClick={handleAddNFTs}
+                    disabled={selectedNFTs.length === 0 || loading}
+                    className={`
+                      px-6 py-2 rounded-lg font-medium transition-all
+                      ${selectedNFTs.length === 0 || loading
+                        ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                        : 'bg-purple-500 hover:bg-purple-600 text-white'
+                      }
+                    `}
+                  >
+                    {loading ? "处理中..." : "添加到盲盒"}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

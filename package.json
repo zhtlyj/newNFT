@@ -5,10 +5,13 @@
   "workspaces": {
     "packages": [
       "packages/hardhat",
-      "packages/nextjs"
+      "packages/nextjs",
+      "packages/SkyOffice",
+      "packages/gallery-master"
     ]
   },
   "scripts": {
+    "start": "concurrently \"yarn workspace @se-2/nextjs dev\" \"npm --prefix ./packages/SkyOffice run start\" \"npm --prefix ./packages/SkyOffice/client run dev\" \"npm --prefix ./packages/gallery-master run dev\"",
     "account": "yarn workspace @se-2/hardhat account",
     "chain": "yarn workspace @se-2/hardhat chain",
     "fork": "yarn workspace @se-2/hardhat fork",
@@ -25,7 +28,6 @@
     "hardhat:test": "yarn workspace @se-2/hardhat test",
     "test": "yarn hardhat:test",
     "format": "yarn next:format && yarn hardhat:format",
-    "start": "yarn workspace @se-2/nextjs dev",
     "next:lint": "yarn workspace @se-2/nextjs lint",
     "next:format": "yarn workspace @se-2/nextjs format",
     "next:check-types": "yarn workspace @se-2/nextjs check-types",
@@ -37,6 +39,7 @@
   "packageManager": "yarn@3.2.3",
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^4",
     "@types/mongodb": "^4.0.7",
     "@types/mysql": "^2",
     "@types/react": "^18",
@@ -45,6 +48,7 @@
     "@types/uuid": "^9",
     "@types/ws": "^8",
     "@types/xmlhttprequest": "^1",
+    "concurrently": "^9.1.2",
     "husky": "^8.0.1",
     "lint-staged": "^13.0.3"
   },
@@ -59,6 +63,7 @@
     "antd": "^5.18.1",
     "bcryptjs": "^2.4.3",
     "ethers": "latest",
+    "express": "4.17.1",
     "framer-motion": "^11.13.1",
     "hardhat-deploy": "latest",
     "mongodb": "^6.11.0",

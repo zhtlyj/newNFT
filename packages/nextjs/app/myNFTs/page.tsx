@@ -9,6 +9,7 @@ import { notification } from "~~/utils/scaffold-eth";
 import { addToIPFS } from "~~/utils/simpleNFT/ipfs-fetch";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 interface NftInfo {
   image: string;
@@ -60,6 +61,8 @@ const MyNFTs: NextPage = () => {
 
   const handleMintItem = async () => {
     const { image, id, name, attributes, owner, price, description } = nftInfo;
+    console.log("开始创建 NFT，初始数据:", nftInfo);
+
     if (image === "") {
       notification.error("请提供图片链接");
       return;
@@ -68,6 +71,8 @@ const MyNFTs: NextPage = () => {
     const notificationId = notification.loading("上传至IPFS中...");
     try {
       const uploadedItem = await addToIPFS({ image, id, name, attributes, owner, price, description });
+      console.log("IPFS 上传结果:", uploadedItem);
+
       notification.remove(notificationId);
       notification.success("数据已上传到IPFS中");
 
@@ -77,19 +82,49 @@ const MyNFTs: NextPage = () => {
         });
 
         const newId = Number(tokenIdCounter) + 1;
+        
+        const nftData = {
+          nft_id: newId,
+          nft_name: name,
+          nft_image: image,
+          CID: uploadedItem.CID,
+          attributes,
+          owner: connectedAddress,
+          price,
+          description
+        };
+        
+        console.log("准备发送到服务器的数据:", nftData);
+
+        try {
+          const response = await axios.post('http://localhost:4000/mintNFT', nftData, {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          console.log("服务器响应:", response.data);
+        } catch (error) {
+          if (axios.isAxiosError(error)) {
+            console.error("API 错误:", {
+              message: error.message,
+              status: error.response?.status,
+              data: error.response?.data
+            });
+            notification.error(`保存失败: ${error.message}`);
+          } else {
+            console.error("未知错误:", error);
+            notification.error("发生未知错误");
+          }
+          return;
+        }
 
         const newNftInfo: NftInfo = {
           ...nftInfo,
           id: newId,
           owner: connectedAddress || "",
-          CID: uploadedItem.CID, // 添加CID
+          CID: uploadedItem.CID,
         };
-
-        setCreatedNFTs((prevNFTs) => {
-          const updatedNFTs = [...prevNFTs, newNftInfo];
-          localStorage.setItem("createdNFTs", JSON.stringify(updatedNFTs));
-          return updatedNFTs;
-        });
+        setCreatedNFTs(prev => [...prev, newNftInfo]);
 
         setNftInfo({
           image: "",
@@ -100,22 +135,37 @@ const MyNFTs: NextPage = () => {
           price: "",
           description: "",
         });
-      } else {
-        notification.error("无法获取TokenIdCounter");
       }
     } catch (error) {
       notification.remove(notificationId);
-      console.error("上传IPFS出错: ", error);
+      console.error("Error:", error);
     }
   };
 
   useEffect(() => {
-    const storedNFTs = localStorage.getItem("createdNFTs");
-    if (storedNFTs) {
-      const parsedNFTs = JSON.parse(storedNFTs);
-      setCreatedNFTs(parsedNFTs);
-      setFilteredNFTs(parsedNFTs.filter((nft: NftInfo) => nft.owner === connectedAddress));
-    }
+    const fetchNFTs = async () => {
+      if (connectedAddress) {
+        try {
+          const response = await axios.get(`http://localhost:4000/getownerNfts/${connectedAddress}`);
+          const nfts = response.data.nfts.map((nft: any) => ({
+            image: nft.nft_image,
+            id: nft.nft_id,
+            name: nft.nft_name,
+            attributes: nft.attributes,
+            owner: nft.owner,
+            price: nft.price,
+            description: nft.description,
+            CID: nft.CID
+          }));
+          setCreatedNFTs(nfts);
+          setFilteredNFTs(nfts);
+        } catch (error) {
+          console.error("Error fetching NFTs:", error);
+        }
+      }
+    };
+
+    fetchNFTs();
   }, [connectedAddress]);
 
   return (
