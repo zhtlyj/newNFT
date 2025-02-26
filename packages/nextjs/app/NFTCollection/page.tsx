@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { MyHoldings } from "~~/components/simpleNFT";
 import { useScaffoldContractRead } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
+import type { ReactNode } from "react";
 
 interface NftInfo {
   image: string;
@@ -16,6 +17,7 @@ interface NftInfo {
   price: string;
   description: string;
   CID?: string;
+  isListed: boolean;
 }
 
 const NFTCollection: NextPage = () => {
@@ -25,6 +27,7 @@ const NFTCollection: NextPage = () => {
   const [selectedType, setSelectedType] = useState<string>('Buy Now');
   const [sortType, setSortType] = useState<string>('newest');
   const [isLoading, setIsLoading] = useState(true);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]); // 修改初始最大值为 100
 
   const { data: tokenIdCounter } = useScaffoldContractRead({
     contractName: "YourCollectible",
@@ -37,7 +40,7 @@ const NFTCollection: NextPage = () => {
   const fetchNFTs = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/nft');
+      const response = await fetch('/api/Nft');
       
       if (!response.ok) {
         throw new Error('获取NFT数据失败');
@@ -50,18 +53,22 @@ const NFTCollection: NextPage = () => {
         setCreatedNFTs(data.nfts);
       }
     } catch (error) {
-      console.error('获取NFT数据出错了:', error);
-      notification.error(error instanceof Error ? error.message : "获取NFT数据失败了");
-      console.log(error)
+      console.error('获取NFT数据出错:', error);
+      notification.error(error instanceof Error ? error.message : "获取NFT数据失败");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 组件加载时获取数据
+  // 组件加载时获取数据，并定期刷新
   useEffect(() => {
     fetchNFTs();
-  }, [connectedAddress]); // 当地址改变时重新获取
+    
+    // 每30秒刷新一次数据
+    const intervalId = setInterval(fetchNFTs, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [connectedAddress]); 
 
   const filteredNFTs = useMemo(() => {
     let filtered = [...createdNFTs];
@@ -75,11 +82,17 @@ const NFTCollection: NextPage = () => {
     }
 
     if (selectedType === 'Buy Now') {
-      filtered = filtered.filter(nft => nft.price !== '');
+      filtered = filtered.filter(nft => nft.isListed && nft.price !== '');
     }
 
+    // 添加价格范围过滤
+    filtered = filtered.filter(nft => {
+      const price = parseFloat(nft.price) || 0;
+      return price >= priceRange[0] && price <= priceRange[1];
+    });
+
     return filtered;
-  }, [createdNFTs, selectedCategory, selectedType]);
+  }, [createdNFTs, selectedCategory, selectedType, priceRange]);
 
   // 排序函数
   const sortedNFTs = useMemo(() => {
@@ -125,6 +138,23 @@ const NFTCollection: NextPage = () => {
   const formatPrice = (price: string | number) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
     return isNaN(numPrice) ? 'NaN' : numPrice.toFixed(2);
+  };
+
+  // 处理价格范围变化
+  const handlePriceRangeChange = (value: number, index: number) => {
+    setPriceRange(prev => {
+      const newRange = [...prev] as [number, number];
+      newRange[index] = value;
+      // 确保最小值不大于最大值
+      if (index === 0 && value > newRange[1]) {
+        newRange[1] = value;
+      }
+      // 确保最大值不小于最小值
+      if (index === 1 && value < newRange[0]) {
+        newRange[0] = value;
+      }
+      return newRange as [number, number];
+    });
   };
 
   return (
@@ -209,13 +239,58 @@ const NFTCollection: NextPage = () => {
             {/* Filter By Price */}
             <div>
               <h2 className="text-2xl font-bold text-[#9d8ec4] mb-4">Filter By Price</h2>
-              <div className="px-4">
-                <div className="w-full h-1 bg-[#231564] rounded-full">
-                  <div className="w-1/2 h-full bg-purple-500 rounded-full"></div>
+              <div className="px-4 space-y-4">
+                {/* 最小值滑块 */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm text-gray-400">
+                    <span>Min Price</span>
+                    <span>{priceRange[0]} ETH</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={priceRange[0]}
+                    onChange={(e) => handlePriceRangeChange(parseFloat(e.target.value), 0)}
+                    className="w-full h-2 bg-[#231564] rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
                 </div>
-                <div className="flex justify-between mt-2">
-                  <span className="text-gray-400">0 ETH</span>
-                  <span className="text-gray-400">10 ETH</span>
+                
+                {/* 最大值滑块 */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm text-gray-400">
+                    <span>Max Price</span>
+                    <span>{priceRange[1]} ETH</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={priceRange[1]}
+                    onChange={(e) => handlePriceRangeChange(parseFloat(e.target.value), 1)}
+                    className="w-full h-2 bg-[#231564] rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
+                </div>
+
+                {/* 价格范围显示 */}
+                <div className="flex justify-between items-center py-2">
+                  <div className="px-3 py-1 bg-[#231564] rounded-lg text-white text-sm">
+                    {priceRange[0]} ETH
+                  </div>
+                  <div className="h-[2px] flex-1 mx-2 bg-[#231564]">
+                    <div 
+                      className="h-full bg-purple-500 rounded-full"
+                      style={{
+                        width: `${((priceRange[1] - priceRange[0]) / 100) * 100}%`,
+                        marginLeft: `${(priceRange[0] / 100) * 100}%`
+                      }}
+                    />
+                  </div>
+                  <div className="px-3 py-1 bg-[#231564] rounded-lg text-white text-sm">
+                    {priceRange[1]} ETH
+                  </div>
                 </div>
               </div>
             </div>
@@ -270,7 +345,7 @@ const NFTCollection: NextPage = () => {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
                   </div>
                 ) : sortedNFTs.length > 0 ? (
-                  <MyHoldings filteredNFTs={sortedNFTs} />
+                  <MyHoldings filteredNFTs={sortedNFTs} onNFTUpdate={fetchNFTs} />
                 ) : (
                   <div className="text-center text-gray-400 py-12">
                     暂无NFT数据

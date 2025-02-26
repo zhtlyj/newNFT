@@ -27,7 +27,11 @@ export async function PUT(request: Request) {
     const data = await request.json();
     const { id, isListed, price, owner } = data;
 
-    const updateData: any = { isListed, price };
+    const updateData: any = { 
+      isListed,
+      price: price || ''
+    };
+    
     if (owner) {
       updateData.owner = owner;
     }

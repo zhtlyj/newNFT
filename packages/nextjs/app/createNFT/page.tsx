@@ -5,12 +5,15 @@ import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MyHoldings } from "~~/components/simpleNFT";
 import { useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
-import { notification } from "~~/utils/scaffold-eth";
+import { notification } from 'antd';
+import type { NotificationConfig } from 'antd/es/notification/interface';
 import { addToIPFS } from "~~/utils/simpleNFT/ipfs-fetch";
 import { uploadToPinata } from "~~/components/simpleNFT/pinata";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { VALID_CATEGORIES } from "../page";
 import { PixelNft } from "../../components/simpleNFT/PixelNft";
+import { notification as antdNotification } from 'antd';
+import type { NotificationInstance } from 'antd/es/notification/interface';
 
 interface NftInfo {
   image: string;
@@ -31,7 +34,7 @@ const saveNFTToDatabase = async (nftData: NftInfo) => {
       isListed: false
     });
     
-    const response = await fetch('/api/nft', {
+    const response = await fetch('/api/Nft', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,6 +56,49 @@ const saveNFTToDatabase = async (nftData: NftInfo) => {
     console.error('保存NFT数据出错:', error);
     throw error;
   }
+};
+
+const notificationStyle = {
+  success: {
+    className: 'custom-notification success-notification',
+    style: {
+      backgroundColor: '#231564',
+      borderRadius: '12px',
+      padding: '12px 24px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      border: '1px solid #3d2b85',
+    },
+  },
+  error: {
+    className: 'custom-notification error-notification',
+    style: {
+      backgroundColor: '#231564',
+      borderRadius: '12px',
+      padding: '12px 24px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      border: '1px solid #3d2b85',
+    },
+  },
+  info: {
+    className: 'custom-notification info-notification',
+    style: {
+      backgroundColor: '#231564',
+      borderRadius: '12px',
+      padding: '12px 24px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      border: '1px solid #3d2b85',
+    },
+  },
+  warning: {
+    className: 'custom-notification warning-notification',
+    style: {
+      backgroundColor: '#231564',
+      borderRadius: '12px',
+      padding: '12px 24px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      border: '1px solid #3d2b85',
+    },
+  },
 };
 
 const CreateNFT: NextPage = () => {
@@ -79,6 +125,7 @@ const CreateNFT: NextPage = () => {
   const [imageData, setImageData] = useState<{ id: number, name: string, onChainAddress: string }[]>([]);
   const [pixelatedDataUrl, setPixelatedDataUrl] = useState<string | null>(null);
   const [tempPixelatedUrl, setTempPixelatedUrl] = useState<string | null>(null);
+  const [hasShownPixelateHint, setHasShownPixelateHint] = useState(false);
 
   const { writeAsync: mintItem } = useScaffoldContractWrite({
     contractName: "YourCollectible",
@@ -154,32 +201,137 @@ const CreateNFT: NextPage = () => {
     setIsPixelateModalOpen(false);
   };
 
+  // 修改通知函数
+  const showNotification = (type: 'info' | 'success' | 'error' | 'warning', config: any) => {
+    notification[type]({
+      ...config,
+      ...notificationStyle[type],
+      className: `${notificationStyle[type].className} ${config.className || ''}`,
+      message: (
+        <div className="flex items-center gap-3">
+          {type === 'info' && (
+            <div className="flex-shrink-0">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-400"></div>
+            </div>
+          )}
+          {type === 'success' && (
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
+              </svg>
+            </div>
+          )}
+          {type === 'error' && (
+            <div className="flex-shrink-0 w-5 h-5 bg-red-500/20 rounded-full flex items-center justify-center">
+              <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+          )}
+          <span className="text-white font-medium">{config.message}</span>
+        </div>
+      ),
+      description: config.description && (
+        <div className="mt-1 text-gray-400 pl-8">
+          {config.description}
+        </div>
+      ),
+    });
+  };
+
   // 修改 IPFS 上传处理函数
   const handleIpfsUpload = async () => {
-    if (!pixelatedDataUrl) {
-      notification.error("请等待图片像素化处理完成");
+    if (!image && !pixelatedDataUrl) {
+      showNotification('error', {
+        message: "错误",
+        description: "请先选择或上传图片"
+      });
+      return;
+    }
+
+    // 如果是使用原图且还没显示过提示，显示提示并等待用户操作
+    if (!pixelatedDataUrl && !hasShownPixelateHint && image) {
+      setHasShownPixelateHint(true);
+      
+      await new Promise<void>((resolve) => {
+        const key = `pixelate-hint-${Date.now()}`;
+        
+        showNotification('info', {
+          key,
+          message: "提示",
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>您可以尝试将图片像素化，创建独特的像素风格NFT</p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setIsPixelateModalOpen(true);
+                    notification.destroy(key);
+                  }}
+                  className="px-4 py-1 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors"
+                >
+                  试试像素化
+                </button>
+                <button
+                  onClick={() => {
+                    notification.destroy(key);
+                    resolve();
+                  }}
+                  className="px-4 py-1 bg-[#2a1a70] text-white rounded-lg text-sm hover:bg-[#342180] transition-colors"
+                >
+                  继续使用原图
+                </button>
+              </div>
+            </div>
+          ),
+          duration: 10,
+          placement: "top",
+        });
+      });
+    }
+
+    // 如果用户选择了像素化，等待像素化完成
+    if (isPixelateModalOpen) {
       return;
     }
 
     setLoading(true);
-    const notificationId = notification.loading("上传至IPFS中...");
+    const notificationId = `upload-${Date.now()}`;
+    
+    showNotification('info', {
+      key: notificationId,
+      message: "上传至IPFS中...",
+      description: "请稍候...",
+      duration: 0,
+    });
+
     try {
-      // 将 base64 转换为文件
-      const response = await fetch(pixelatedDataUrl);
-      const blob = await response.blob();
-      const pixelatedFile = new File([blob], 'pixelated.png', { type: 'image/png' });
+      let fileToUpload: File;
+      
+      if (pixelatedDataUrl) {
+        const response = await fetch(pixelatedDataUrl);
+        const blob = await response.blob();
+        fileToUpload = new File([blob], 'pixelated.png', { type: 'image/png' });
+      } else if (image) {
+        fileToUpload = image;
+      } else {
+        throw new Error("No image selected");
+      }
 
-      const imageUploadedItem = await uploadToPinata(pixelatedFile);
+      const imageUploadedItem = await uploadToPinata(fileToUpload);
 
-      notification.remove(notificationId);
-      notification.success("已上传到IPFS");
+      notification.destroy(notificationId);
+      showNotification('success', {
+        message: "成功",
+        description: "已上传到IPFS"
+      });
 
       setUploadedIpfsPath(imageUploadedItem.IpfsHash);
 
       // 存储上传的图片详情
       const newImageData = {
         id: imageData.length + 1,
-        name: 'pixelated.png',
+        name: pixelatedDataUrl ? 'pixelated.png' : fileToUpload.name,
         onChainAddress: imageUploadedItem.IpfsHash,
       };
       setImageData([...imageData, newImageData]);
@@ -191,8 +343,11 @@ const CreateNFT: NextPage = () => {
         image: `https://ipfs.io/ipfs/${imageUploadedItem.IpfsHash}`
       }));
     } catch (error) {
-      notification.remove(notificationId);
-      notification.error("上传IPFS出错");
+      notification.destroy(notificationId);
+      showNotification('error', {
+        message: "错误",
+        description: "上传IPFS出错"
+      });
       console.log(error);
     } finally {
       setLoading(false);
@@ -215,15 +370,28 @@ const CreateNFT: NextPage = () => {
   const handleMintItem = async () => {
     const { image, id, name, attributes, owner, price, description } = nftInfo;
     if (image === "") {
-      notification.error("请提供图片链接");
+      showNotification('error', {
+        message: "错误",
+        description: "请提供图片链接"
+      });
       return;
     }
 
-    const notificationId = notification.loading("上传至IPFS中...");
+    const notificationId = `mint-${Date.now()}`;
+    showNotification('info', {
+      key: notificationId,
+      message: "处理中",
+      description: "上传至IPFS中...",
+      duration: 0
+    });
+
     try {
       const uploadedItem = await addToIPFS({ image, id, name, attributes, owner, price, description });
-      notification.remove(notificationId);
-      notification.success("数据已上传到IPFS中");
+      notification.destroy(notificationId);
+      showNotification('success', {
+        message: "成功",
+        description: "数据已上传到IPFS中"
+      });
 
       if (tokenIdCounter !== undefined) {
         await mintItem({
@@ -241,7 +409,10 @@ const CreateNFT: NextPage = () => {
 
         // 保存到数据库
         await saveNFTToDatabase(newNftInfo);
-        notification.success("NFT创建成功并保存到数据库");
+        showNotification('success', {
+          message: "成功",
+          description: "NFT创建成功并保存到数据库"
+        });
 
         setCreatedNFTs((prevNFTs) => {
           const updatedNFTs = [...prevNFTs, newNftInfo];
@@ -260,12 +431,18 @@ const CreateNFT: NextPage = () => {
           isListed: false
         });
       } else {
-        notification.error("无法获取TokenIdCounter");
+        showNotification('error', {
+          message: "错误",
+          description: "无法获取TokenIdCounter"
+        });
       }
     } catch (error) {
-      notification.remove(notificationId);
+      notification.destroy(notificationId);
       console.error("创建NFT出错: ", error);
-      notification.error(error instanceof Error ? error.message : "创建NFT失败");
+      showNotification('error', {
+        message: "错误",
+        description: error instanceof Error ? error.message : "创建NFT失败"
+      });
     }
   };
 
@@ -295,214 +472,447 @@ const CreateNFT: NextPage = () => {
       // 关闭图片列表模态框
       setIsImageListOpen(false);
       
-      notification.success("Image selected successfully");
+      showNotification('success', {
+        message: "成功",
+        description: "Image selected successfully"
+      });
     } catch (error) {
-      notification.error("Failed to load selected image");
+      showNotification('error', {
+        message: "错误",
+        description: "Failed to load selected image"
+      });
       console.error(error);
     }
   };
 
+  // 修改使用原图按钮的处理函数
+  const handleUseOriginalImage = () => {
+    if (image) {
+      setPixelatedDataUrl(null);
+      showNotification('success', {
+        message: "成功",
+        description: "已切换到原始图片"
+      });
+    }
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#1a1147]">
-      <div className="container mx-auto px-4 py-8">
-        {/* 标题部分 */}
-        <h1 className="text-4xl font-bold mb-2 text-white font-[Space Grotesk]">Upload File</h1>
-        <p className="text-gray-400 mb-8">
-          Upload image, Video, Audio, or 3D Model. File type supported: JPG, PNG, GIF, SVG,SVG,MP4, WEBM,MP3,WAV, OGG, GLB.
-        </p>
+    <>
+      <style jsx global>{`
+        .custom-notification {
+          animation: slideIn 0.2s ease-out;
+        }
 
-        {/* 主要内容区域 - 左右布局 */}
-        <div className="flex gap-8">
-          {/* 左侧表单区域 */}
-          <div className="flex-1">
-            {/* 上传区域 - 调整大小并添加按钮 */}
-            <div className="bg-[#231564] rounded-2xl mb-8">
-              {/* 上传框 */}
-              <div className="border border-dashed border-[#3d2b85] rounded-2xl m-1.5 flex flex-col">
-                {/* 上传区域 */}
-                <div className="h-[160px] flex flex-col items-center justify-center">
-                  <input
-                    type="file"
-                    onChange={handleImageChange}
-                    className="hidden"
-                    accept="image/*,video/*,audio/*,.glb"
-                    id="file-upload"
-                    required
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:bg-[#2a1a70]/30 transition-colors">
-                    <div className="flex flex-col items-center">
-                      {/* 上传图标 */}
-                      <div className="w-10 h-10 mb-3 flex items-center justify-center">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
+        .custom-notification .ant-notification-notice-close {
+          color: #9CA3AF;
+          top: 14px;
+          right: 14px;
+        }
+
+        .custom-notification .ant-notification-notice-close:hover {
+          color: #E5E7EB;
+        }
+
+        @keyframes slideIn {
+          from {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .custom-notification .ant-notification-notice-content {
+          background: transparent;
+        }
+
+        .custom-notification button {
+          transition: all 0.2s ease;
+        }
+
+        .custom-notification button:hover {
+          opacity: 0.9;
+        }
+      `}</style>
+      <div className="flex flex-col min-h-screen bg-[#1a1147]">
+        <div className="container mx-auto px-4 py-8">
+          {/* 标题部分 */}
+          <h1 className="text-4xl font-bold mb-2 text-white font-[Space Grotesk]">Upload File</h1>
+          <p className="text-gray-400 mb-8">
+            Upload image, Video, Audio, or 3D Model. File type supported: JPG, PNG, GIF, SVG,SVG,MP4, WEBM,MP3,WAV, OGG, GLB.
+          </p>
+
+          {/* 主要内容区域 - 左右布局 */}
+          <div className="flex gap-8">
+            {/* 左侧表单区域 */}
+            <div className="flex-1">
+              {/* 上传区域 - 调整大小并添加按钮 */}
+              <div className="bg-[#231564] rounded-2xl mb-8">
+                {/* 上传框 */}
+                <div className="border border-dashed border-[#3d2b85] rounded-2xl m-1.5 flex flex-col">
+                  {/* 上传区域 */}
+                  <div className="h-[160px] flex flex-col items-center justify-center">
+                    <input
+                      type="file"
+                      onChange={handleImageChange}
+                      className="hidden"
+                      accept="image/*,video/*,audio/*,.glb"
+                      id="file-upload"
+                      required
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:bg-[#2a1a70]/30 transition-colors">
+                      <div className="flex flex-col items-center">
+                        {/* 上传图标 */}
+                        <div className="w-10 h-10 mb-3 flex items-center justify-center">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                        <p className="text-gray-300 text-sm mb-1">Drag & Drop File Or</p>
+                        <p className="text-purple-400 text-sm">Upload From Your Device</p>
                       </div>
-                      <p className="text-gray-300 text-sm mb-1">Drag & Drop File Or</p>
-                      <p className="text-purple-400 text-sm">Upload From Your Device</p>
-                    </div>
-                  </label>
-                </div>
+                    </label>
+                  </div>
 
-                {/* 像素化预览按钮 */}
-                {image && (
+                  {/* 像素化预览按钮 */}
+                  {image && (
+                    <div className="px-4 py-3 border-t border-[#3d2b85]">
+                      <button
+                        onClick={() => setIsPixelateModalOpen(true)}
+                        className="w-full bg-[#2a1a70] text-white py-3 px-4 rounded-xl hover:bg-[#342180] transition-colors flex items-center justify-center gap-2"
+                      >
+                         <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                        像素化预览
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 查看已上传图片按钮 */}
                   <div className="px-4 py-3 border-t border-[#3d2b85]">
                     <button
-                      onClick={() => setIsPixelateModalOpen(true)}
+                      onClick={() => setIsImageListOpen(true)}
                       className="w-full bg-[#2a1a70] text-white py-3 px-4 rounded-xl hover:bg-[#342180] transition-colors flex items-center justify-center gap-2"
                     >
-                       <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                      像素化预览
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      View Uploaded Images
                     </button>
                   </div>
-                )}
 
-                {/* 查看已上传图片按钮 */}
-                <div className="px-4 py-3 border-t border-[#3d2b85]">
-                  <button
-                    onClick={() => setIsImageListOpen(true)}
-                    className="w-full bg-[#2a1a70] text-white py-3 px-4 rounded-xl hover:bg-[#342180] transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {/* 底部区域：文件大小限制和上传按钮 */}
+                  <div className="flex justify-between items-center p-4 border-t border-[#3d2b85]">
+                    <div className="flex items-center">
+                      <p className="text-gray-400 text-sm">Max size:200 MB</p>
+                      {pixelatedDataUrl && (
+                        <span className="ml-4 text-purple-400 text-sm">
+                          • 像素化图片可用
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {pixelatedDataUrl && (
+                        <button
+                          className={`px-4 py-2 bg-[#2a1a70] text-white rounded-lg text-sm hover:bg-[#342180] transition-colors ${
+                            loading ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          disabled={loading}
+                          onClick={handleUseOriginalImage}
+                        >
+                          使用原图
+                        </button>
+                      )}
+                      <button
+                        className={`px-6 py-2 bg-purple-600 rounded-lg text-white text-sm hover:bg-purple-700 transition-colors ${
+                          loading ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        disabled={loading}
+                        onClick={handleIpfsUpload}
+                      >
+                        {loading ? "Uploading..." : "Upload to IPFS"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* NFT创建表单 */}
+              <div className="bg-[#231564] rounded-2xl p-6">
+                <h2 className="text-2xl font-bold text-white mb-2">Item Details</h2>
+                <p className="text-gray-400 mb-6">Please fill the information below</p>
+                
+                <div className="space-y-6">
+                  {/* Title */}
+                  <div>
+                    <input
+                      type="text"
+                      name="name"
+                      placeholder="Title"
+                      className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
+                      value={nftInfo.name}
+                      onChange={handleNftInfoChange}
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <input
+                      type="text"
+                      name="description"
+                      placeholder="Description"
+                      className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
+                      value={nftInfo.description}
+                      onChange={handleNftInfoChange}
+                    />
+                  </div>
+
+                  {/* Price */}
+                  <div>
+                    <input
+                      type="text"
+                      name="price"
+                      placeholder="Price"
+                      className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
+                      value={nftInfo.price}
+                      onChange={handleNftInfoChange}
+                    />
+                  </div>
+
+                  {/* Attributes - 改为下拉选择框 */}
+                  <div>
+                    <select
+                      name="attributes"
+                      className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
+                      value={nftInfo.attributes[0]?.value || ""}
+                      onChange={(e) => {
+                        setNftInfo(prev => ({
+                          ...prev,
+                          attributes: [{ trait_type: 'category', value: e.target.value }]
+                        }));
+                      }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    View Uploaded Images
-                  </button>
+                      <option value="" disabled>Select Category</option>
+                      {VALID_CATEGORIES.map((category) => (
+                        <option key={category} value={category} className="bg-[#1a1147]">
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 隐藏的图片链接字段 - 由上传功能自动填充 */}
+                  <input
+                    type="hidden"
+                    name="image"
+                    value={nftInfo.image}
+                  />
                 </div>
 
-                {/* 底部区域：文件大小限制和上传按钮 */}
-                <div className="flex justify-between items-center p-4 border-t border-[#3d2b85]">
-                  <p className="text-gray-400 text-sm">Max size:200 MB</p>
-                  <button
-                    className={`px-6 py-2 bg-purple-600 rounded-lg text-white text-sm hover:bg-purple-700 transition-colors ${
-                      loading ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
-                    disabled={loading}
-                    onClick={handleIpfsUpload}
-                  >
-                    {loading ? "Uploading..." : "Upload to IPFS"}
-                  </button>
+                {/* Create Item 按钮 */}
+                <div className="mt-8">
+                  {!isConnected || isConnecting ? (
+                    <RainbowKitCustomConnectButton />
+                  ) : (
+                    <button
+                      onClick={handleMintItem}
+                      className="w-full bg-purple-600 text-white py-4 px-6 rounded-2xl hover:bg-purple-700 transition-colors font-semibold"
+                    >
+                      Create Item
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* NFT创建表单 */}
-            <div className="bg-[#231564] rounded-2xl p-6">
-              <h2 className="text-2xl font-bold text-white mb-2">Item Details</h2>
-              <p className="text-gray-400 mb-6">Please fill the information below</p>
-              
-              <div className="space-y-6">
-                {/* Title */}
-                <div>
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Title"
-                    className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
-                    value={nftInfo.name}
-                    onChange={handleNftInfoChange}
+            {/* 像素化预览模态框 */}
+            {isPixelateModalOpen && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="bg-[#231564] rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-white">像素化预览</h2>
+                    <button
+                      onClick={handleCancelPixelated}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <PixelNft
+                    originalImage={image}
+                    onPixelated={handlePixelated}
                   />
-                </div>
 
-                {/* Description */}
-                <div>
-                  <input
-                    type="text"
-                    name="description"
-                    placeholder="Description"
-                    className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
-                    value={nftInfo.description}
-                    onChange={handleNftInfoChange}
-                  />
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      onClick={handleCancelPixelated}
+                      className="px-6 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors mr-4"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleConfirmPixelated}
+                      className="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors"
+                      disabled={!tempPixelatedUrl}
+                    >
+                      确认使用
+                    </button>
+                  </div>
                 </div>
-
-                {/* Price */}
-                <div>
-                  <input
-                    type="text"
-                    name="price"
-                    placeholder="Price"
-                    className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
-                    value={nftInfo.price}
-                    onChange={handleNftInfoChange}
-                  />
-                </div>
-
-                {/* Attributes - 改为下拉选择框 */}
-                <div>
-                  <select
-                    name="attributes"
-                    className="w-full bg-[#1a1147] border border-[#3d2b85] rounded-2xl p-4 text-white focus:outline-none focus:border-purple-500 placeholder-gray-500"
-                    value={nftInfo.attributes[0]?.value || ""}
-                    onChange={(e) => {
-                      setNftInfo(prev => ({
-                        ...prev,
-                        attributes: [{ trait_type: 'category', value: e.target.value }]
-                      }));
-                    }}
-                  >
-                    <option value="" disabled>Select Category</option>
-                    {VALID_CATEGORIES.map((category) => (
-                      <option key={category} value={category} className="bg-[#1a1147]">
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 隐藏的图片链接字段 - 由上传功能自动填充 */}
-                <input
-                  type="hidden"
-                  name="image"
-                  value={nftInfo.image}
-                />
               </div>
+            )}
 
-              {/* Create Item 按钮 */}
-              <div className="mt-8">
-                {!isConnected || isConnecting ? (
-                  <RainbowKitCustomConnectButton />
-                ) : (
-                  <button
-                    onClick={handleMintItem}
-                    className="w-full bg-purple-600 text-white py-4 px-6 rounded-2xl hover:bg-purple-700 transition-colors font-semibold"
-                  >
-                    Create Item
-                  </button>
-                )}
+            {/* 右侧预览区域 */}
+            <div className="w-[400px]">
+              <div className="sticky top-8">
+                <h2 className="text-3xl font-bold text-[#9d8ec4] mb-6 font-[Space Grotesk]">Preview Item</h2>
+                <div className="bg-[#231564] rounded-3xl overflow-hidden shadow-xl">
+                  <div className="aspect-square relative">
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        style={{ 
+                          imageRendering: 'auto',
+                          filter: pixelatedDataUrl ? 'blur(2px) opacity(0.3)' : 'none',
+                          transition: 'all 0.3s ease'
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 bg-[#1a1147]">
+                        No media to preview
+                      </div>
+                    )}
+
+                    {/* 像素化图片叠加层 */}
+                    {pixelatedDataUrl && (
+                      <img
+                        src={pixelatedDataUrl}
+                        alt="Pixelated Preview"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        style={{ 
+                          imageRendering: 'pixelated',
+                          animation: 'fadeIn 0.3s ease-in-out'
+                        }}
+                      />
+                    )}
+                    
+                    {/* 创建者头像 - 左下角 */}
+                    {nftInfo.name && (
+                      <div className="absolute left-4 -bottom-6 w-12 h-12 rounded-full border-4 border-[#231564] overflow-hidden">
+                        <img
+                          src="/profile.jpg"
+                          alt="creator"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* NFT信息区域 */}
+                  {nftInfo.name && (
+                    <div className="p-6 pt-8 bg-gradient-to-b from-[#231564] to-[#1a1147]">
+                      {/* 标题和创建者 */}
+                      <div className="mb-4">
+                        <h3 className="text-2xl font-bold text-white mb-2">{nftInfo.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          by <span className="text-purple-400">Meta-Legends</span>
+                        </p>
+                      </div>
+
+                      {/* 价格信息 */}
+                      {nftInfo.price && (
+                        <div className="mt-4">
+                          <p className="text-gray-400 mb-1">Highest bid</p>
+                          <div className="flex items-center space-x-2">
+                            <svg
+                              className="w-4 h-4 text-purple-400"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z" />
+                            </svg>
+                            <span className="text-xl font-bold text-purple-400">
+                              {nftInfo.price} ETH
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 描述信息 */}
+                      {nftInfo.description && (
+                        <div className="mt-4 text-sm text-gray-400">
+                          {nftInfo.description}
+                        </div>
+                      )}
+
+                      {/* 其他属性 */}
+                      {nftInfo.attributes.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-[#3d2b85]">
+                          <div className="flex flex-wrap gap-2">
+                            {nftInfo.attributes.map((attr, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 rounded-full bg-[#1a1147] text-purple-400 text-sm"
+                              >
+                                {attr.value}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* 像素化预览模态框 */}
-          {isPixelateModalOpen && (
+          {/* 已上传图片列表模态框 */}
+          {isImageListOpen && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="bg-[#231564] rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-white">像素化预览</h2>
+                  <h2 className="text-2xl font-bold text-white">Uploaded Images</h2>
                   <button
-                    onClick={handleCancelPixelated}
+                    onClick={() => setIsImageListOpen(false)}
                     className="text-gray-400 hover:text-white transition-colors"
                   >
                     <svg
@@ -521,228 +931,58 @@ const CreateNFT: NextPage = () => {
                   </button>
                 </div>
 
-                <PixelNft
-                  originalImage={image}
-                  onPixelated={handlePixelated}
-                />
-
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={handleCancelPixelated}
-                    className="px-6 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors mr-4"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={handleConfirmPixelated}
-                    className="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors"
-                    disabled={!tempPixelatedUrl}
-                  >
-                    确认使用
-                  </button>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b border-[#3d2b85]">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-gray-400 font-medium">ID</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Name</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Preview</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#3d2b85]">
+                      {imageData.map((row) => (
+                        <tr key={row.id} className="hover:bg-[#2a1a70] transition-colors">
+                          <td className="py-3 px-4 text-white">{row.id}</td>
+                          <td className="py-3 px-4 text-white">{row.name}</td>
+                          <td className="py-3 px-4">
+                            <img
+                              src={`https://ipfs.io/ipfs/${row.onChainAddress}`}
+                              alt={row.name}
+                              className="w-12 h-12 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => handleImageSelect(row.onChainAddress)}
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleImageSelect(row.onChainAddress)}
+                                className="px-3 py-1 bg-purple-600/20 rounded-lg text-purple-400 hover:bg-purple-600/30 transition-colors text-sm"
+                              >
+                                Use Image
+                              </button>
+                              <a
+                                href={`https://ipfs.io/ipfs/${row.onChainAddress}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1 bg-[#1a1147] rounded-lg text-gray-400 hover:text-white transition-colors text-sm"
+                              >
+                                View on IPFS
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
           )}
-
-          {/* 右侧预览区域 */}
-          <div className="w-[400px]">
-            <div className="sticky top-8">
-              <h2 className="text-3xl font-bold text-[#9d8ec4] mb-6 font-[Space Grotesk]">Preview Item</h2>
-              <div className="bg-[#231564] rounded-3xl overflow-hidden shadow-xl">
-                <div className="aspect-square relative">
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      style={{ 
-                        imageRendering: 'auto',
-                        filter: pixelatedDataUrl ? 'blur(2px) opacity(0.3)' : 'none',
-                        transition: 'all 0.3s ease'
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-[#1a1147]">
-                      No media to preview
-                    </div>
-                  )}
-
-                  {/* 像素化图片叠加层 */}
-                  {pixelatedDataUrl && (
-                    <img
-                      src={pixelatedDataUrl}
-                      alt="Pixelated Preview"
-                      className="absolute inset-0 w-full h-full object-cover"
-                      style={{ 
-                        imageRendering: 'pixelated',
-                        animation: 'fadeIn 0.3s ease-in-out'
-                      }}
-                    />
-                  )}
-                  
-                  {/* 创建者头像 - 左下角 */}
-                  {nftInfo.name && (
-                    <div className="absolute left-4 -bottom-6 w-12 h-12 rounded-full border-4 border-[#231564] overflow-hidden">
-                      <img
-                        src="/profile.jpg"
-                        alt="creator"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* NFT信息区域 */}
-                {nftInfo.name && (
-                  <div className="p-6 pt-8 bg-gradient-to-b from-[#231564] to-[#1a1147]">
-                    {/* 标题和创建者 */}
-                    <div className="mb-4">
-                      <h3 className="text-2xl font-bold text-white mb-2">{nftInfo.name}</h3>
-                      <p className="text-gray-400 text-sm">
-                        by <span className="text-purple-400">Meta-Legends</span>
-                      </p>
-                    </div>
-
-                    {/* 价格信息 */}
-                    {nftInfo.price && (
-                      <div className="mt-4">
-                        <p className="text-gray-400 mb-1">Highest bid</p>
-                        <div className="flex items-center space-x-2">
-                          <svg
-                            className="w-4 h-4 text-purple-400"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z" />
-                          </svg>
-                          <span className="text-xl font-bold text-purple-400">
-                            {nftInfo.price} ETH
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 描述信息 */}
-                    {nftInfo.description && (
-                      <div className="mt-4 text-sm text-gray-400">
-                        {nftInfo.description}
-                      </div>
-                    )}
-
-                    {/* 其他属性 */}
-                    {nftInfo.attributes.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-[#3d2b85]">
-                        <div className="flex flex-wrap gap-2">
-                          {nftInfo.attributes.map((attr, index) => (
-                            <span
-                              key={index}
-                              className="px-3 py-1 rounded-full bg-[#1a1147] text-purple-400 text-sm"
-                            >
-                              {attr.value}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
-
-        {/* 已上传图片列表模态框 */}
-        {isImageListOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-[#231564] rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Uploaded Images</h2>
-                <button
-                  onClick={() => setIsImageListOpen(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b border-[#3d2b85]">
-                    <tr>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">ID</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Name</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Preview</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#3d2b85]">
-                    {imageData.map((row) => (
-                      <tr key={row.id} className="hover:bg-[#2a1a70] transition-colors">
-                        <td className="py-3 px-4 text-white">{row.id}</td>
-                        <td className="py-3 px-4 text-white">{row.name}</td>
-                        <td className="py-3 px-4">
-                          <img
-                            src={`https://ipfs.io/ipfs/${row.onChainAddress}`}
-                            alt={row.name}
-                            className="w-12 h-12 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => handleImageSelect(row.onChainAddress)}
-                          />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleImageSelect(row.onChainAddress)}
-                              className="px-3 py-1 bg-purple-600/20 rounded-lg text-purple-400 hover:bg-purple-600/30 transition-colors text-sm"
-                            >
-                              Use Image
-                            </button>
-                            <a
-                              href={`https://ipfs.io/ipfs/${row.onChainAddress}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-3 py-1 bg-[#1a1147] rounded-lg text-gray-400 hover:text-white transition-colors text-sm"
-                            >
-                              View on IPFS
-                            </a>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* 添加动画样式 */}
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-      `}</style>
-    </div>
+    </>
   );
 };
 

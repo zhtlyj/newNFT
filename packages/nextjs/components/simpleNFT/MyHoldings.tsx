@@ -17,91 +17,101 @@ interface NftInfo {
 
 interface MyHoldingsProps {
   filteredNFTs: NftInfo[];
+  onNFTUpdate: () => void;
 }
 
-export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
+export const MyHoldings: React.FC<MyHoldingsProps> = ({ filteredNFTs, onNFTUpdate }) => {
   const { address: connectedAddress } = useAccount();
-  const [isListed, setIsListed] = useState<{ [key: number]: boolean }>({});
+  const [nfts, setNfts] = useState<NftInfo[]>(filteredNFTs);
   const [listingPrice, setListingPrice] = useState<{ [key: number]: string }>({});
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
   const router = useRouter();
 
-  // 加载已上架的NFT信息
+  // 初始化时从 filteredNFTs 中获取 NFTs
   useEffect(() => {
-    const storedListedNFTs = JSON.parse(localStorage.getItem("listedNFTs") || "[]");
-    const listedState: { [key: number]: boolean } = {};
-    const priceState: { [key: number]: string } = {};
-    storedListedNFTs.forEach((nft: { id: number, price: string }) => {
-      listedState[nft.id] = true;
-      priceState[nft.id] = nft.price;
-    });
-    setIsListed(listedState);
-    setListingPrice(priceState);
-  }, []);
+    setNfts(filteredNFTs);
+  }, [filteredNFTs]);
 
   // 处理上架/下架
-  const handleListToggle = async (checked: boolean, nft: NftInfo) => {
+  const handleListToggle = async (nft: NftInfo) => {
     try {
-      if (checked && !listingPrice[nft.id]) {
-        notification.error({ message: "请设置价格" });
-        return;
+      const newListedStatus = !nft.isListed;
+      
+      // 如果是上架操作，检查价格
+      if (newListedStatus) {
+        if (!listingPrice[nft.id]) {
+          notification.error({ message: "请设置价格" });
+          return;
+        }
       }
 
-      console.log('准备更新NFT状态:', {
-        id: nft.id,
-        isListed: checked,
-        price: checked ? listingPrice[nft.id] : '',
-        owner: nft.owner
-      });
+      // 使用当前输入框中的价格或保持原价格
+      const currentPrice = newListedStatus ? listingPrice[nft.id] : nft.price;
 
       // 发送更新请求到数据库
-      const response = await fetch('/api/nft', {
+      const response = await fetch('/api/Nft/list', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           id: nft.id,
-          isListed: checked,
-          price: checked ? listingPrice[nft.id] : '',
+          isListed: newListedStatus,
+          price: currentPrice,
           owner: nft.owner
         }),
       });
 
       const data = await response.json();
-      console.log('服务器响应:', data);
 
       if (!response.ok) {
         throw new Error(data.message || '操作失败');
       }
 
       // 更新本地状态
-      setIsListed(prev => ({ ...prev, [nft.id]: checked }));
+      setNfts(prevNfts => 
+        prevNfts.map(item => 
+          item.id === nft.id 
+            ? { 
+                ...item, 
+                isListed: newListedStatus,
+                price: currentPrice
+              }
+            : item
+        )
+      );
+
+      // 清空输入框的值
+      setListingPrice(prev => ({
+        ...prev,
+        [nft.id]: ''
+      }));
+      
+      // 操作成功后调用更新函数
+      onNFTUpdate();
       
       notification.success({
-        message: checked ? '上架成功' : '下架成功',
-        description: checked 
-          ? `NFT #${nft.id} 已上架，价格: ${listingPrice[nft.id]} ETH`
+        message: newListedStatus ? '上架成功' : '下架成功',
+        description: newListedStatus 
+          ? `NFT #${nft.id} 已上架，价格: ${currentPrice} ETH`
           : `NFT #${nft.id} 已下架`
       });
 
     } catch (error) {
       console.error('操作失败:', error);
       notification.error({
-        message: checked ? '上架失败' : '下架失败',
+        message: '操作失败',
         description: error instanceof Error ? error.message : '未知错误'
       });
-      // 恢复之前的状态
-      setIsListed(prev => ({ ...prev, [nft.id]: !checked }));
     }
   };
 
   // 计算当前页的NFTs
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentNFTs = filteredNFTs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredNFTs.length / itemsPerPage);
+  const currentNFTs = nfts.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(nfts.length / itemsPerPage);
 
   // 格式化价格显示
   const formatPrice = (price: string) => {
@@ -157,26 +167,33 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
 
               {/* 上架控制 - 减小间距 */}
               <div className="flex items-center gap-2 pt-3 border-t border-[#3d2b85]">
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-400 text-xs">上架</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={isListed[nft.id] || false}
-                      onChange={(e) => handleListToggle(e.target.checked, nft)}
-                    />
-                    <div className="w-8 h-4 bg-[#1a1147] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
-                  </label>
-                </div>
-                <input
-                  type="text"
-                  value={listingPrice[nft.id] || ""}
-                  onChange={(e) => setListingPrice(prev => ({ ...prev, [nft.id]: e.target.value }))}
-                  placeholder="Price in ETH"
-                  disabled={isListed[nft.id]}
-                  className="flex-1 bg-[#1a1147] border border-[#3d2b85] rounded-md px-2 py-0.5 text-white text-xs focus:outline-none focus:border-purple-500"
-                />
+                <button
+                  onClick={() => handleListToggle(nft)}
+                  className={`flex-1 py-2 px-4 rounded-lg text-white text-sm font-medium transition-colors ${
+                    nft.isListed
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : 'bg-purple-500 hover:bg-purple-600'
+                  }`}
+                >
+                  {nft.isListed ? '下架' : '上架'}
+                </button>
+                {!nft.isListed && (
+                  <input
+                    type="text"
+                    value={listingPrice[nft.id] || ""}
+                    onChange={(e) => setListingPrice(prev => ({ 
+                      ...prev, 
+                      [nft.id]: e.target.value 
+                    }))}
+                    placeholder="Price in ETH"
+                    className="flex-1 bg-[#1a1147] border border-[#3d2b85] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+                  />
+                )}
+                {nft.isListed && (
+                  <div className="flex-1 text-right text-purple-400 text-sm">
+                    价格: {nft.price} ETH
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -226,7 +243,7 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
         </div>
       )}
 
-      {filteredNFTs.length === 0 && (
+      {nfts.length === 0 && (
         <div className="text-center py-8 text-gray-400">
           No NFTs found in this category
         </div>
