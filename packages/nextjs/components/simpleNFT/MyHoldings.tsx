@@ -50,7 +50,7 @@ export const MyHoldings: React.FC<MyHoldingsProps> = ({ filteredNFTs, onNFTUpdat
       const currentPrice = newListedStatus ? listingPrice[nft.id] : nft.price;
 
       // 发送更新请求到数据库
-      const response = await fetch('/api/Nft/list', {
+      const response = await fetch('/api/nft/list', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

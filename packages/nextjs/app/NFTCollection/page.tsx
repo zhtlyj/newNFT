@@ -40,7 +40,7 @@ const NFTCollection: NextPage = () => {
   const fetchNFTs = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/Nft');
+      const response = await fetch('/api/nft');
       
       if (!response.ok) {
         throw new Error('获取NFT数据失败');
