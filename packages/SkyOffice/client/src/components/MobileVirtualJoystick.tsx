@@ -8,8 +8,6 @@ import Game from '../scenes/Game'
 import { useAppSelector } from '../hooks'
 import { JoystickMovement } from './Joystick'
 
-//以下的代码是移动虚拟摇杆组件，用于控制游戏中的角色移动
-
 const Backdrop = styled.div`
   position: fixed;
   bottom: 100px;

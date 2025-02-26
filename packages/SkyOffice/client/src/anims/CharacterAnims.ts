@@ -1,6 +1,5 @@
 import Phaser from 'phaser'
 
-//为游戏中的角色创建一系列动画，以便在游戏中实现角色的动态效果，如行走、站立、坐下等动作
 export const createCharacterAnims = (anims: Phaser.Animations.AnimationManager) => {
   const animsFrameRate = 15
 

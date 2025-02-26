@@ -3,11 +3,10 @@ import { Client } from 'colyseus'
 import { IOfficeState } from '../../../types/IOfficeState'
 
 type Payload = {
-  client: Client       
-  computerId: string   
+  client: Client
+  computerId: string
 }
 
-//计算机添加用户命令
 export class ComputerAddUserCommand extends Command<IOfficeState, Payload> {
   execute(data: Payload) {
     const { client, computerId } = data
@@ -19,7 +18,6 @@ export class ComputerAddUserCommand extends Command<IOfficeState, Payload> {
   }
 }
 
-//计算机移除用户的命令
 export class ComputerRemoveUserCommand extends Command<IOfficeState, Payload> {
   execute(data: Payload) {
     const { client, computerId } = data

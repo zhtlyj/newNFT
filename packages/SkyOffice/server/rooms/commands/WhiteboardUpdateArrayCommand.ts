@@ -4,10 +4,9 @@ import { IOfficeState } from '../../../types/IOfficeState'
 
 type Payload = {
   client: Client
-  whiteboardId: string   //白板的id
+  whiteboardId: string
 }
 
-//将玩家添加到白板中
 export class WhiteboardAddUserCommand extends Command<IOfficeState, Payload> {
   execute(data: Payload) {
     const { client, whiteboardId } = data
@@ -19,7 +18,6 @@ export class WhiteboardAddUserCommand extends Command<IOfficeState, Payload> {
   }
 }
 
-//将玩家从白板中移除
 export class WhiteboardRemoveUserCommand extends Command<IOfficeState, Payload> {
   execute(data: Payload) {
     const { client, whiteboardId } = data

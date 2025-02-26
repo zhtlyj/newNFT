@@ -9,9 +9,6 @@ import { closeComputerDialog } from '../stores/ComputerStore'
 
 import Video from './Video'
 
-
-//下列的代码主要是创建一个视频会议或屏幕共享的对话框，允许用户查看自己和其他用户的视频流，并且可以控制屏幕共享。
-
 const Backdrop = styled.div`
   position: fixed;
   top: 0;
@@ -116,7 +113,7 @@ export default function ComputerDialog() {
               }
             }}
           >
-            {shareScreenManager?.myStream ? 'Stop sharing' : 'Share Screen'}
+            {shareScreenManager?.myStream ? '停止共享' : '共享屏幕'}
           </Button>
         </div>
 

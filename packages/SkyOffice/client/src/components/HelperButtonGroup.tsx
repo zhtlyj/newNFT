@@ -21,8 +21,6 @@ import { setShowJoystick, toggleBackgroundMode } from '../stores/UserStore'
 import { useAppSelector, useAppDispatch } from '../hooks'
 import { getAvatarString, getColorByString } from '../util'
 
-//为用户提供一个方便的界面，让他们可以轻松地访问各种功能，如控制虚拟摇杆、查看房间信息、切换背景主题等
-
 const Backdrop = styled.div`
   position: fixed;
   display: flex;
@@ -122,7 +120,7 @@ export default function HelperButtonGroup() {
     <Backdrop>
       <div className="wrapper-group">
         {roomJoined && (
-          <Tooltip title={showJoystick ? 'Disable virtual joystick' : 'Enable virtual joystick'}>
+          <Tooltip title={showJoystick ? '禁用虚拟摇杆' : '启用虚拟摇杆'}>
             <StyledFab size="small" onClick={() => dispatch(setShowJoystick(!showJoystick))}>
               {showJoystick ? <VideogameAssetOffIcon /> : <VideogameAssetIcon />}
             </StyledFab>
@@ -147,36 +145,36 @@ export default function HelperButtonGroup() {
             </RoomDescription>
             <p className="tip">
               <LightbulbIcon />
-              Shareable link coming up 😄
+              即将生成可分享链接 😄
             </p>
           </Wrapper>
         )}
         {showControlGuide && (
           <Wrapper>
-            <Title>Controls</Title>
+            <Title>控制方法</Title>
             <IconButton className="close" onClick={() => setShowControlGuide(false)} size="small">
               <CloseIcon />
             </IconButton>
             <ul>
               <li>
-                <strong>W, A, S, D or arrow keys</strong> to move
+                <strong>W、A、S、D或箭头</strong> 移动
               </li>
               <li>
-                <strong>E</strong> to sit down (when facing a chair)
+                <strong>E</strong> 键坐下（面对椅子时）
               </li>
               <li>
-                <strong>R</strong> to use computer to screen share (when facing a computer)
+                <strong>R</strong> 键使用电脑进行屏幕共享（面对电脑时）
               </li>
               <li>
-                <strong>Enter</strong> to open chat
+                <strong>Enter</strong> 键打开聊天
               </li>
               <li>
-                <strong>ESC</strong> to close chat
+                <strong>ESC</strong> 键关闭聊天
               </li>
             </ul>
             <p className="tip">
               <LightbulbIcon />
-              Video connection will start if you are close to someone else
+              如果你靠近其他人，视频连接将会开始
             </p>
           </Wrapper>
         )}
@@ -184,7 +182,7 @@ export default function HelperButtonGroup() {
       <ButtonGroup>
         {roomJoined && (
           <>
-            <Tooltip title="Room Info">
+            <Tooltip title="房间信息">
               <StyledFab
                 size="small"
                 onClick={() => {
@@ -195,7 +193,7 @@ export default function HelperButtonGroup() {
                 <ShareIcon />
               </StyledFab>
             </Tooltip>
-            <Tooltip title="Control Guide">
+            <Tooltip title="控制指南">
               <StyledFab
                 size="small"
                 onClick={() => {
@@ -208,21 +206,21 @@ export default function HelperButtonGroup() {
             </Tooltip>
           </>
         )}
-        <Tooltip title="Visit Our GitHub">
+        <Tooltip title="关于我们">
           <StyledFab
             size="small"
-            href="https://github.com/kevinshen56714/SkyOffice"
+            href="https://www.jxuspt.com/Z01_XXGK/SchoolIntroduction.html"
             target="_blank"
           >
             <GitHubIcon />
           </StyledFab>
         </Tooltip>
-        <Tooltip title="Follow Us on Twitter">
-          <StyledFab size="small" href="https://twitter.com/SkyOfficeApp" target="_blank">
+        <Tooltip title="关注我们的推特">
+          <StyledFab size="small" href="https://x.com/JRBC330000" target="_blank">
             <TwitterIcon />
           </StyledFab>
         </Tooltip>
-        <Tooltip title="Switch Background Theme">
+        <Tooltip title="切换背景主题">
           <StyledFab size="small" onClick={() => dispatch(toggleBackgroundMode())}>
             {backgroundMode === BackgroundMode.DAY ? <DarkModeIcon /> : <LightModeIcon />}
           </StyledFab>

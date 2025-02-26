@@ -92,11 +92,12 @@ export default class OtherPlayer extends Player {
     super.destroy(fromScene)
   }
 
-//preUpdate 是为每个游戏对象的每个帧调用的,用于处理游戏逻辑和更新游戏对象的状态
+  /** preUpdate is called every frame for every game object. */
   preUpdate(t: number, dt: number) {
     super.preUpdate(t, dt)
 
-    // 在需要平滑移动角色时。通过限制更新频率（750 毫秒），可以减少不必要的计算和渲染，提高游戏性能X
+    // if Phaser has not updated the canvas (when the game tab is not active) for more than 1 sec
+    // directly snap player to their current locations
     if (this.lastUpdateTimestamp && t - this.lastUpdateTimestamp > 750) {
       this.lastUpdateTimestamp = t
       this.x = this.targetPosition[0]
@@ -107,24 +108,24 @@ export default class OtherPlayer extends Player {
     }
 
     this.lastUpdateTimestamp = t
-    this.setDepth(this.y) // 更改玩家深度基于玩家的y值
+    this.setDepth(this.y) // change player.depth based on player.y
     const animParts = this.anims.currentAnim.key.split('_')
     const animState = animParts[1]
     if (animState === 'sit') {
       const animDir = animParts[2]
       const sittingShift = sittingShiftData[animDir]
       if (sittingShift) {
-        // 如果玩家坐下，设置硬编码深度(方向之间的差异)
+        // set hardcoded depth (differs between directions) if player sits down
         this.setDepth(this.depth + sittingShiftData[animDir][2])
       }
     }
 
-    const speed = 200   //速度以每秒像素为单位
-    const delta = (speed / 1000) * dt   //玩家在帧中可以移动的最小距离(dt以毫秒为单位)
+    const speed = 200 // speed is in unit of pixels per second
+    const delta = (speed / 1000) * dt // minimum distance that a player can move in a frame (dt is in unit of ms)
     let dx = this.targetPosition[0] - this.x
     let dy = this.targetPosition[1] - this.y
 
-    // 如果玩家距离目标位置足够近，直接将玩家拉到那个位置。
+    // if the player is close enough to the target position, directly snap the player to that position
     if (Math.abs(dx) < delta) {
       this.x = this.targetPosition[0]
       this.playerContainer.x = this.targetPosition[0]
@@ -136,7 +137,7 @@ export default class OtherPlayer extends Player {
       dy = 0
     }
 
-    //如果玩家离目标位置还很远，向目标施加恒定速度
+    // if the player is still far from target position, impose a constant velocity towards it
     let vx = 0
     let vy = 0
     if (dx > 0) vx += speed
@@ -144,13 +145,15 @@ export default class OtherPlayer extends Player {
     if (dy > 0) vy += speed
     else if (dy < 0) vy -= speed
 
-     //更新角色速度
+    // update character velocity
     this.setVelocity(vx, vy)
     this.body.velocity.setLength(speed)
-    //也更新 playerNameContainer 速度
+    // also update playerNameContainer velocity
     this.playContainerBody.setVelocity(vx, vy)
     this.playContainerBody.velocity.setLength(speed)
-  //在游戏或应用程序中检测玩家是否长时间未活动或未满足特定条件，从而触发玩家断开连接的逻辑
+
+    // while currently connected with myPlayer
+    // if myPlayer and the otherPlayer stop overlapping, delete video stream
     this.connectionBufferTime += dt
     if (
       this.connected &&
@@ -170,18 +173,17 @@ declare global {
   namespace Phaser.GameObjects {
     interface GameObjectFactory {
       otherPlayer(
-        x: number,   //对象在场景中的x位置
-        y: number,   //对象在场景中的y位置
-        texture: string,  //对象的纹理
-        id: string,   //对象的id
-        name: string,  //对象的名称
-        frame?: string | number  //纹理中的特定帧
+        x: number,
+        y: number,
+        texture: string,
+        id: string,
+        name: string,
+        frame?: string | number
       ): OtherPlayer
     }
   }
 }
 
-//当调用this.add.otherPlayer时，会执行下列的方法 然后，它启用了对象的物理属性，并设置了碰撞体积和偏移量，最后返回了创建的对象。
 Phaser.GameObjects.GameObjectFactory.register(
   'otherPlayer',
   function (

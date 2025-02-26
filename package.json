@@ -11,7 +11,7 @@
     ]
   },
   "scripts": {
-    "start": "concurrently \"yarn workspace @se-2/nextjs dev\" \"npm --prefix ./packages/SkyOffice run start\" \"npm --prefix ./packages/SkyOffice/client run dev\" \"npm --prefix ./packages/gallery-master run dev\"",
+    "start": "concurrently \"yarn workspace @se-2/nextjs dev\" \"npm --prefix ./packages/SkyOffice run start\" \"npm --prefix ./packages/SkyOffice/client run dev\" \"npm --prefix ./packages/gallery-master run dev\" \"npm --prefix ./packages/gallery-master start\"",
     "account": "yarn workspace @se-2/hardhat account",
     "chain": "yarn workspace @se-2/hardhat chain",
     "fork": "yarn workspace @se-2/hardhat fork",

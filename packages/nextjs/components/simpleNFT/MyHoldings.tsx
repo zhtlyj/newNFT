@@ -56,7 +56,7 @@ export const MyHoldings = ({ filteredNFTs }: MyHoldingsProps) => {
       });
 
       // 发送更新请求到数据库
-      const response = await fetch('/api/Nft', {
+      const response = await fetch('/api/nft', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

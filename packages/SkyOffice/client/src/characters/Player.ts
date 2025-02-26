@@ -1,6 +1,9 @@
 import Phaser from 'phaser'
 import { PlayerBehavior } from '../../../types/PlayerBehavior'
-//用于存储不同方向上的坐姿动画的位移数据
+/**
+ * shifting distance for sitting animation
+ * format: direction: [xShift, yShift, depthShift]
+ */
 export const sittingShiftData = {
   up: [0, 3, -10],
   down: [0, 3, 1],
@@ -37,11 +40,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.playerContainer = this.scene.add.container(this.x, this.y - 30).setDepth(5000)
 
-    // 将dialogBubble添加到播放器Container
+    // add dialogBubble to playerContainer
     this.playerDialogBubble = this.scene.add.container(0, 0).setDepth(5000)
     this.playerContainer.add(this.playerDialogBubble)
 
-    //将playerName 添加到 playerContainer
+    // add playerName to playerContainer
     this.playerName = this.scene.add
       .text(0, 0, '')
       .setFontFamily('Arial')
@@ -61,7 +64,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   updateDialogBubble(content: string) {
     this.clearDialogBubble()
 
-    //对话框文本进行预处理(最多70个字符)
+    // preprocessing for dialog bubble text (maximum 70 characters)
     const dialogBubbleText = content.length <= 70 ? content : content.substring(0, 70).concat('...')
 
     const innerText = this.scene.add
@@ -71,7 +74,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       .setColor('#000000')
       .setOrigin(0.5)
 
-    //设置对话框比其中的文本稍大
+    // set dialogBox slightly larger than the text in it
     const innerTextHeight = innerText.height
     const innerTextWidth = innerText.width
 
@@ -91,7 +94,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     )
     this.playerDialogBubble.add(innerText)
 
-    //秒后，清除对话框气泡
+    // After 6 seconds, clear the dialog bubble
     this.timeoutID = window.setTimeout(() => {
       this.clearDialogBubble()
     }, 6000)

@@ -7,7 +7,6 @@ type Payload = {
   name: string
 }
 
-//更改玩家名字
 export default class PlayerUpdateNameCommand extends Command<IOfficeState, Payload> {
   execute(data: Payload) {
     const { client, name } = data

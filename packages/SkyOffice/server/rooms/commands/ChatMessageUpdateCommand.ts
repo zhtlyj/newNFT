@@ -4,11 +4,10 @@ import { IOfficeState } from '../../../types/IOfficeState'
 import { ChatMessage } from '../schema/OfficeState'
 
 type Payload = {
-  client: Client   //发送消息的玩家
-  content: string  //消息内容
+  client: Client
+  content: string
 }
 
-//处理聊天消息的更新
 export default class ChatMessageUpdateCommand extends Command<IOfficeState, Payload> {
   execute(data: Payload) {
     const { client, content } = data
@@ -17,12 +16,15 @@ export default class ChatMessageUpdateCommand extends Command<IOfficeState, Payl
 
     if (!chatMessages) return
 
- // 如果消息数量超过100条，则删除最早的一条消息
+    /**
+     * Only allow server to store a maximum of 100 chat messages:
+     * remove the first element before pushing a new one when array length is >= 100
+     */
     if (chatMessages.length >= 100) chatMessages.shift()
 
-    const newMessage = new ChatMessage() //将newMessage初始化成ChatMessage对象
-    newMessage.author = player.name   //给这个对象赋值
-    newMessage.content = content        //给这个对象赋值
-    chatMessages.push(newMessage)   //将新消息添加到消息列表中
+    const newMessage = new ChatMessage()
+    newMessage.author = player.name
+    newMessage.content = content
+    chatMessages.push(newMessage)
   }
 }

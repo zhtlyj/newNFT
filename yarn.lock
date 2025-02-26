@@ -3082,6 +3082,7 @@ __metadata:
     ipfs-utils: ^9.0.14
     kubo-rpc-client: ^3.0.1
     mongodb: ^6.11.0
+    mongoose: ^8.9.3
     mysql: ^2.18.1
     mysql2: ^3.9.7
     next: ^14.0.4
@@ -13402,7 +13403,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mongoose@npm:^8.1.1":
+"mongoose@npm:^8.1.1, mongoose@npm:^8.9.3":
   version: 8.10.1
   resolution: "mongoose@npm:8.10.1"
   dependencies:

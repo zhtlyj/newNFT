@@ -21,12 +21,12 @@ export default class MyPlayer extends Player {
   private chairOnSit?: Chair
   public joystickMovement?: JoystickMovement
   constructor(
-    scene: Phaser.Scene,  //当前游戏场景对象，用于初始化游戏对象
-    x: number,   //初始化时游戏对象的x坐标
-    y: number,   //初始化时游戏对象的y坐标
-    texture: string,   //游戏对象的纹理
-    id: string,       //游戏对象的id
-    frame?: string | number  //游戏对象的帧
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    texture: string,
+    id: string,
+    frame?: string | number
   ) {
     super(scene, x, y, texture, id, frame)
     this.playContainerBody = this.playerContainer.body as Phaser.Physics.Arcade.Body
@@ -38,14 +38,12 @@ export default class MyPlayer extends Player {
     store.dispatch(pushPlayerJoinedMessage(name))
   }
 
-  // 设置玩家的纹理
   setPlayerTexture(texture: string) {
     this.playerTexture = texture
     this.anims.play(`${this.playerTexture}_idle_down`, true)
     phaserEvents.emit(Event.MY_PLAYER_TEXTURE_CHANGE, this.x, this.y, this.anims.currentAnim.key)
   }
 
-  // 设置玩家的行为
   handleJoystickMovement(movement: JoystickMovement) {
     this.joystickMovement = movement
   }
@@ -61,81 +59,82 @@ export default class MyPlayer extends Player {
 
     const item = playerSelector.selectedItem
 
-    //检查玩家是否按下了键盘上的“R”键，并根据玩家当前交互的物品类型执行不同的操作
     if (Phaser.Input.Keyboard.JustDown(keyR)) {
       switch (item?.itemType) {
-        case ItemType.COMPUTER:  //如果玩家当前交互的物品是电脑，则执行电脑操作
+        case ItemType.COMPUTER:
           const computer = item as Computer
           computer.openDialog(this.playerId, network)
           break
-        case ItemType.WHITEBOARD:   //如果玩家当前交互的物品是白板，则执行白板操作
+        case ItemType.WHITEBOARD:
           const whiteboard = item as Whiteboard
           whiteboard.openDialog(network)
           break
-        case ItemType.VENDINGMACHINE: //如果玩家当前交互的物品是自动售货机.则执行自动售货机操作
-          const url = 'https://www.buymeacoffee.com/skyoffice'
+        case ItemType.VENDINGMACHINE:
+          // hacky and hard-coded, but leaving it as is for now
+          const url = 'https://blog.csdn.net/KKKD711?spm=1000.2115.3001.5343'
           openURL(url)
           break
       }
     }
 
     switch (this.playerBehavior) {
-      // 如果玩家当前行为是“空闲”，则检查玩家是否按下了键盘上的“E”键
       case PlayerBehavior.IDLE:
+        // if press E in front of selected chair
         if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.CHAIR) {
-          // 如果玩家当前交互的物品是椅子，则执行椅子操作
           const chairItem = item as Chair
+          /**
+           * move player to the chair and play sit animation
+           * a delay is called to wait for player movement (from previous velocity) to end
+           * as the player tends to move one more frame before sitting down causing player
+           * not sitting at the center of the chair
+           */
           this.scene.time.addEvent({
             delay: 10,
             callback: () => {
-              //更新角色的位置和速度
+              // update character velocity and position
               this.setVelocity(0, 0)
               if (chairItem.itemDirection) {
                 this.setPosition(
                   chairItem.x + sittingShiftData[chairItem.itemDirection][0],
                   chairItem.y + sittingShiftData[chairItem.itemDirection][1]
                 ).setDepth(chairItem.depth + sittingShiftData[chairItem.itemDirection][2])
-                //也更新playerNameContainer的速度和位置
+                // also update playerNameContainer velocity and position
                 this.playContainerBody.setVelocity(0, 0)
                 this.playerContainer.setPosition(
                   chairItem.x + sittingShiftData[chairItem.itemDirection][0],
                   chairItem.y + sittingShiftData[chairItem.itemDirection][1] - 30
                 )
               }
-              //播放角色动画
+
               this.play(`${this.playerTexture}_sit_${chairItem.itemDirection}`, true)
-              playerSelector.selectedItem = undefined  //表示玩家当前没有选中任何物品
-              //设置玩家选择器位置
+              playerSelector.selectedItem = undefined
               if (chairItem.itemDirection === 'up') {
                 playerSelector.setPosition(this.x, this.y - this.height)
               } else {
                 playerSelector.setPosition(0, 0)
               }
-              //将玩家的当前位置和当前动画的名称发送到服务器，确保所有玩家都能看到其他玩家的位置和动画状态
+              // send new location and anim to server
               network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
             },
             loop: false,
           })
-          // 设置一个新的对话框，当玩家坐下时
+          // set up new dialog as player sits down
           chairItem.clearDialogBox()
-          chairItem.setDialogBox('Press E to leave')
+          chairItem.setDialogBox('按 E 离开')
           this.chairOnSit = chairItem
           this.playerBehavior = PlayerBehavior.SITTING
           return
         }
 
-        const speed = 200  // 设置角色的移动速度
-        let vx = 0     // 设置角色的水平速度
-        let vy = 0     // 设置角色的垂直速度
-   
-        // 根据玩家是否按下键盘上的方向键或“WASD”键来更新角色的速度
+        const speed = 200
+        let vx = 0
+        let vy = 0
+
         let joystickLeft = false
         let joystickRight = false
         let joystickUp = false
         let joystickDown = false
 
-
-      //用于处理游戏控制器或类似设备的输入
         if (this.joystickMovement?.isMoving) {
           joystickLeft = this.joystickMovement.direction.left
           joystickRight = this.joystickMovement.direction.right
@@ -143,25 +142,24 @@ export default class MyPlayer extends Player {
           joystickDown = this.joystickMovement.direction.down
         }
 
-        //根据玩家是否按下键盘上的方向键或“WASD”键来更新角色的速度，来实现移动
         if (cursors.left?.isDown || cursors.A?.isDown || joystickLeft) vx -= speed
         if (cursors.right?.isDown || cursors.D?.isDown || joystickRight) vx += speed
         if (cursors.up?.isDown || cursors.W?.isDown || joystickUp) {
           vy -= speed
-          this.setDepth(this.y) 
+          this.setDepth(this.y) //change player.depth if player.y changes
         }
         if (cursors.down?.isDown || cursors.S?.isDown || joystickDown) {
           vy += speed
-          this.setDepth(this.y) 
+          this.setDepth(this.y) //change player.depth if player.y changes
         }
-        // 更新角色速度
+        // update character velocity
         this.setVelocity(vx, vy)
         this.body.velocity.setLength(speed)
-        //也更新 playerNameContainer velocity
+        // also update playerNameContainer velocity
         this.playContainerBody.setVelocity(vx, vy)
         this.playContainerBody.velocity.setLength(speed)
 
-        //根据速度更新动画并将新位置和动画发送到服务器
+        // update animation according to velocity and send new location and anim to server
         if (vx !== 0 || vy !== 0) network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
         if (vx > 0) {
           this.play(`${this.playerTexture}_run_right`, true)
@@ -175,17 +173,17 @@ export default class MyPlayer extends Player {
           const parts = this.anims.currentAnim.key.split('_')
           parts[1] = 'idle'
           const newAnim = parts.join('_')
-          //这防止空闲动画不断被调用
+          // this prevents idle animation keeps getting called
           if (this.anims.currentAnim.key !== newAnim) {
             this.play(parts.join('_'), true)
-            // 将新位置和动画发送到服务器
+            // send new location and anim to server
             network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
           }
         }
         break
 
       case PlayerBehavior.SITTING:
-        //如果玩家坐着时按E键，返回空闲状态
+        // back to idle if player press E while sitting
         if (Phaser.Input.Keyboard.JustDown(keyE)) {
           const parts = this.anims.currentAnim.key.split('_')
           parts[1] = 'idle'
@@ -201,8 +199,6 @@ export default class MyPlayer extends Player {
   }
 }
 
-
-//通过扩展Phaser的GameObjectFactory接口，添加了一个新的方法myPlayer，用于创建自定义的MyPlayer对象
 declare global {
   namespace Phaser.GameObjects {
     interface GameObjectFactory {
@@ -211,7 +207,6 @@ declare global {
   }
 }
 
-//创建了一个MyPlayer实例，并将其添加到显示列表和更新列表中。同时，它还启用了物理引擎，并设置了碰撞体积和偏移量
 Phaser.GameObjects.GameObjectFactory.register(
   'myPlayer',
   function (

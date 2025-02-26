@@ -7,7 +7,6 @@ import {
   IChatMessage,
 } from '../../../types/IOfficeState'
 
-//玩家类
 export class Player extends Schema implements IPlayer {
   @type('string') name = ''
   @type('number') x = 705
@@ -17,25 +16,21 @@ export class Player extends Schema implements IPlayer {
   @type('boolean') videoConnected = false
 }
 
-//连接到电脑的玩家
 export class Computer extends Schema implements IComputer {
   @type({ set: 'string' }) connectedUser = new SetSchema<string>()
 }
 
-//连接到白板的玩家
 export class Whiteboard extends Schema implements IWhiteboard {
   @type('string') roomId = getRoomId()
   @type({ set: 'string' }) connectedUser = new SetSchema<string>()
 }
 
-//聊天消息类
 export class ChatMessage extends Schema implements IChatMessage {
-  @type('string') author = ''  //发送者 
-  @type('number') createdAt = new Date().getTime()   //发送时间
-  @type('string') content = ''    //发送内容
+  @type('string') author = ''
+  @type('number') createdAt = new Date().getTime()
+  @type('string') content = ''
 }
 
-//房间状态类
 export class OfficeState extends Schema implements IOfficeState {
   @type({ map: Player })
   players = new MapSchema<Player>()
@@ -54,7 +49,6 @@ export const whiteboardRoomIds = new Set<string>()
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 const charactersLength = characters.length
 
-//生成12位随机字符串
 function getRoomId(): string {
   let result = ''
   for (let i = 0; i < 12; i++) {

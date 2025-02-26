@@ -18,10 +18,6 @@ import { getColorByString } from '../util'
 import { useAppDispatch, useAppSelector } from '../hooks'
 import { MessageType, setFocused, setShowChat } from '../stores/ChatStore'
 
-
-//下列的代码主要是一个显示聊天消息的界面、一个输入框用于发送消息、一个表情选择器以及一个按钮用于显示或隐藏聊天界面
-
-
 const Backdrop = styled.div`
   position: fixed;
   bottom: 60px;
@@ -230,7 +226,7 @@ export default function Chat() {
         {showChat ? (
           <>
             <ChatHeader>
-              <h3>Chat</h3>
+              <h3>江软聊天室</h3>
               <IconButton
                 aria-label="close dialog"
                 className="close"
@@ -266,7 +262,7 @@ export default function Chat() {
                 inputRef={inputRef}
                 autoFocus={focused}
                 fullWidth
-                placeholder="Press Enter to chat"
+                placeholder="按 Enter 键聊天"
                 value={inputValue}
                 onKeyDown={handleKeyDown}
                 onChange={handleChange}

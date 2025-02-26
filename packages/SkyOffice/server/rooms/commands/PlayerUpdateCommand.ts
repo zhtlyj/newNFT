@@ -6,10 +6,9 @@ type Payload = {
   client: Client
   x: number
   y: number
-  anim: string   //玩家的动作状态 
+  anim: string
 }
 
-// 更新玩家位置和动作状态
 export default class PlayerUpdateCommand extends Command<IOfficeState, Payload> {
   execute(data: Payload) {
     const { client, x, y, anim } = data

@@ -31,7 +31,7 @@ const saveNFTToDatabase = async (nftData: NftInfo) => {
       isListed: false
     });
     
-    const response = await fetch('/api/Nft', {
+    const response = await fetch('/api/nft', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

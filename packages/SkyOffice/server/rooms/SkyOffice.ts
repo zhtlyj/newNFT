@@ -19,9 +19,9 @@ import ChatMessageUpdateCommand from './commands/ChatMessageUpdateCommand'
 
 export class SkyOffice extends Room<OfficeState> {
   private dispatcher = new Dispatcher(this)
-  private name: string  //房间名称
-  private description: string   //房间描述
-  private password: string | null = null   //房间密码
+  private name: string
+  private description: string
+  private password: string | null = null
 
   async onCreate(options: IRoomData) {
     const { name, description, password, autoDispose } = options
@@ -39,17 +39,17 @@ export class SkyOffice extends Room<OfficeState> {
 
     this.setState(new OfficeState())
 
-    // 在房间里创建5台电脑
+    // HARD-CODED: Add 5 computers in a room
     for (let i = 0; i < 5; i++) {
       this.state.computers.set(String(i), new Computer())
     }
 
-    // 在房间里创建5台白板
+    // HARD-CODED: Add 3 whiteboards in a room
     for (let i = 0; i < 3; i++) {
       this.state.whiteboards.set(String(i), new Whiteboard())
     }
 
-    // 用于记录玩家连接到计算机的
+    // when a player connect to a computer, add to the computer connectedUser array
     this.onMessage(Message.CONNECT_TO_COMPUTER, (client, message: { computerId: string }) => {
       this.dispatcher.dispatch(new ComputerAddUserCommand(), {
         client,
@@ -57,7 +57,7 @@ export class SkyOffice extends Room<OfficeState> {
       })
     })
 
-    // 用于记录玩家从计算机断开连接
+    // when a player disconnect from a computer, remove from the computer connectedUser array
     this.onMessage(Message.DISCONNECT_FROM_COMPUTER, (client, message: { computerId: string }) => {
       this.dispatcher.dispatch(new ComputerRemoveUserCommand(), {
         client,
@@ -65,7 +65,7 @@ export class SkyOffice extends Room<OfficeState> {
       })
     })
 
-    //用户停止屏幕共享时，通知所有正在共享屏幕的用户停止共享的事件
+    // when a player stop sharing screen
     this.onMessage(Message.STOP_SCREEN_SHARE, (client, message: { computerId: string }) => {
       const computer = this.state.computers.get(message.computerId)
       computer.connectedUser.forEach((id) => {
@@ -77,7 +77,7 @@ export class SkyOffice extends Room<OfficeState> {
       })
     })
 
-    //用于处理玩家连接到白板的事件
+    // when a player connect to a whiteboard, add to the whiteboard connectedUser array
     this.onMessage(Message.CONNECT_TO_WHITEBOARD, (client, message: { whiteboardId: string }) => {
       this.dispatcher.dispatch(new WhiteboardAddUserCommand(), {
         client,
@@ -85,7 +85,7 @@ export class SkyOffice extends Room<OfficeState> {
       })
     })
 
-    // 处理玩家从白板断开连接的情况
+    // when a player disconnect from a whiteboard, remove from the whiteboard connectedUser array
     this.onMessage(
       Message.DISCONNECT_FROM_WHITEBOARD,
       (client, message: { whiteboardId: string }) => {
@@ -96,7 +96,7 @@ export class SkyOffice extends Room<OfficeState> {
       }
     )
 
-    //接收到的更新玩家位置和动画的消息
+    // when receiving updatePlayer message, call the PlayerUpdateCommand
     this.onMessage(
       Message.UPDATE_PLAYER,
       (client, message: { x: number; y: number; anim: string }) => {
@@ -109,7 +109,7 @@ export class SkyOffice extends Room<OfficeState> {
       }
     )
 
-    //用于处理接收到的更新玩家名字的消息
+    // when receiving updatePlayerName message, call the PlayerUpdateNameCommand
     this.onMessage(Message.UPDATE_PLAYER_NAME, (client, message: { name: string }) => {
       this.dispatcher.dispatch(new PlayerUpdateNameCommand(), {
         client,
@@ -117,19 +117,19 @@ export class SkyOffice extends Room<OfficeState> {
       })
     })
 
-    // 用于处理玩家准备连接的消息
+    // when a player is ready to connect, call the PlayerReadyToConnectCommand
     this.onMessage(Message.READY_TO_CONNECT, (client) => {
       const player = this.state.players.get(client.sessionId)
       if (player) player.readyToConnect = true
     })
 
-    // 用于处理玩家连接视频的消息
+    // when a player is ready to connect, call the PlayerReadyToConnectCommand
     this.onMessage(Message.VIDEO_CONNECTED, (client) => {
       const player = this.state.players.get(client.sessionId)
       if (player) player.videoConnected = true
     })
 
-    //处理玩家断开流连接的情况
+    // when a player disconnect a stream, broadcast the signal to the other player connected to the stream
     this.onMessage(Message.DISCONNECT_STREAM, (client, message: { clientId: string }) => {
       this.clients.forEach((cli) => {
         if (cli.sessionId === message.clientId) {
@@ -138,15 +138,15 @@ export class SkyOffice extends Room<OfficeState> {
       })
     })
 
-    // 用于处理玩家发送聊天消息的情况
+    // when a player send a chat message, update the message array and broadcast to all connected clients except the sender
     this.onMessage(Message.ADD_CHAT_MESSAGE, (client, message: { content: string }) => {
-      // 更新聊天消息
+      // update the message array (so that players join later can also see the message)
       this.dispatcher.dispatch(new ChatMessageUpdateCommand(), {
         client,
         content: message.content,
       })
 
-      // 广播聊天消息，同时排除发送消息的玩家，之后以谈话框的形式显示
+      // broadcast to all currently connected clients except the sender (to render in-game dialog on top of the character)
       this.broadcast(
         Message.ADD_CHAT_MESSAGE,
         { clientId: client.sessionId, content: message.content },
@@ -155,7 +155,6 @@ export class SkyOffice extends Room<OfficeState> {
     })
   }
 
-  //用于验证客户端的身份
   async onAuth(client: Client, options: { password: string | null }) {
     if (this.password) {
       const validPassword = await bcrypt.compare(options.password, this.password)
@@ -166,7 +165,6 @@ export class SkyOffice extends Room<OfficeState> {
     return true
   }
 
-  //当玩家加入房间时调用
   onJoin(client: Client, options: any) {
     this.state.players.set(client.sessionId, new Player())
     client.send(Message.SEND_ROOM_DATA, {
@@ -176,7 +174,6 @@ export class SkyOffice extends Room<OfficeState> {
     })
   }
 
-  //用于处理玩家离开房间的事件
   onLeave(client: Client, consented: boolean) {
     if (this.state.players.has(client.sessionId)) {
       this.state.players.delete(client.sessionId)
@@ -193,7 +190,6 @@ export class SkyOffice extends Room<OfficeState> {
     })
   }
 
-  //用于清理资源、释放内存、停止后台进程
   onDispose() {
     this.state.whiteboards.forEach((whiteboard) => {
       if (whiteboardRoomIds.has(whiteboard.roomId)) whiteboardRoomIds.delete(whiteboard.roomId)

@@ -37,7 +37,7 @@ const NFTCollection: NextPage = () => {
   const fetchNFTs = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/Nft');
+      const response = await fetch('/api/nft');
       
       if (!response.ok) {
         throw new Error('获取NFT数据失败');
@@ -50,8 +50,9 @@ const NFTCollection: NextPage = () => {
         setCreatedNFTs(data.nfts);
       }
     } catch (error) {
-      console.error('获取NFT数据出错:', error);
-      notification.error(error instanceof Error ? error.message : "获取NFT数据失败");
+      console.error('获取NFT数据出错了:', error);
+      notification.error(error instanceof Error ? error.message : "获取NFT数据失败了");
+      console.log(error)
     } finally {
       setIsLoading(false);
     }

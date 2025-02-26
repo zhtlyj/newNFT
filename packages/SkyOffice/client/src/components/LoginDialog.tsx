@@ -23,8 +23,6 @@ import { getAvatarString, getColorByString } from '../util'
 import phaserGame from '../PhaserGame'
 import Game from '../scenes/Game'
 
-//以下一个用户登录对话框，用户可以输入名字选择头像，并检查视频连接状态，然后点击“Join”按钮进行注册
-
 const Wrapper = styled.form`
   position: fixed;
   top: 50%;
@@ -181,7 +179,7 @@ export default function LoginDialog() {
       </RoomDescription>
       <Content>
         <Left>
-          <SubTitle>Select an avatar</SubTitle>
+          <SubTitle>选择一个角色</SubTitle>
           <Swiper
             modules={[Navigation]}
             navigation
@@ -214,8 +212,8 @@ export default function LoginDialog() {
           {!videoConnected && (
             <Warning>
               <Alert variant="outlined" severity="warning">
-                <AlertTitle>Warning</AlertTitle>
-                No webcam/mic connected - <strong>connect one for best experience!</strong>
+                <AlertTitle>警告⚠</AlertTitle>
+                未连接摄像头/麦克风  - <strong>请连接一个以获得最佳体验！</strong>
               </Alert>
               <Button
                 variant="outlined"
@@ -231,7 +229,7 @@ export default function LoginDialog() {
 
           {videoConnected && (
             <Warning>
-              <Alert variant="outlined">Webcam connected!</Alert>
+              <Alert variant="outlined">摄像头已连接！</Alert>
             </Warning>
           )}
         </Right>

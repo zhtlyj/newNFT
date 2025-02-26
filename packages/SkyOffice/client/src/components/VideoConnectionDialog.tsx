@@ -7,8 +7,6 @@ import AlertTitle from '@mui/material/AlertTitle'
 import phaserGame from '../PhaserGame'
 import Game from '../scenes/Game'
 
-//以下的代码是用于在网页上显示一个对话框，提示用户连接网络摄像头以获得更好的体验。如果用户没有连接摄像头，会显示一个警告提示，并提供一个按钮让用户连接摄像头
-
 const Backdrop = styled.div`
   position: fixed;
   top: 0;
@@ -37,8 +35,8 @@ export default function VideoConnectionDialog() {
             }}
           >
             <AlertTitle>Warning</AlertTitle>
-            No webcam connected
-            <br /> <strong>connect one for full experience!</strong>
+            没有连接摄像头
+            <br /> <strong>请连接一个以获得完整体验！</strong>
           </Alert>
         )}
         <Button
@@ -49,7 +47,7 @@ export default function VideoConnectionDialog() {
             game.network.webRTC?.getUserMedia()
           }}
         >
-          Connect Webcam
+          连接摄像头
         </Button>
       </Wrapper>
     </Backdrop>

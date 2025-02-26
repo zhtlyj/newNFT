@@ -1,7 +1,5 @@
 import { Joystick } from 'react-joystick-component'
 
-
-// 以下的代码是用于需要用户通过摇杆控制方向的场景，例如游戏中的角色移动、虚拟摇杆控制等
 export interface JoystickMovement {
   isMoving: boolean
   direction: Direction

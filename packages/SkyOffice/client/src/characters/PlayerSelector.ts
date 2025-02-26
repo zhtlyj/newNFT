@@ -17,12 +17,12 @@ export default class PlayerSelector extends Phaser.GameObjects.Zone {
       return
     }
 
- //在坐着时则可能不需要执行某些操作，比如移动、攻击等
+    // no need to update player selection while sitting
     if (player.playerBehavior === PlayerBehavior.SITTING) {
       return
     }
 
-    //更新玩家选择框的位置，使其始终在玩家面前
+    // update player selection box position so that it's always in front of the player
     const { x, y } = player
     let joystickLeft = false
     let joystickRight = false
@@ -43,8 +43,9 @@ export default class PlayerSelector extends Phaser.GameObjects.Zone {
     } else if (cursors.down?.isDown || cursors.S?.isDown || joystickDown) {
       this.setPosition(x, y + 32)
     }
-    //在当前选择项目时，
-    //如果选中项和选中项不在选择器的范围，则清除对话框和选中项
+
+    // while currently selecting an item,
+    // if the selector and selection item stop overlapping, clear the dialog box and selected item
     if (this.selectedItem) {
       if (!this.scene.physics.overlap(this, this.selectedItem)) {
         this.selectedItem.clearDialogBox()

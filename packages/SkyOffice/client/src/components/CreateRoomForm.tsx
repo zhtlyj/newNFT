@@ -13,8 +13,6 @@ import { useAppSelector } from '../hooks'
 import phaserGame from '../PhaserGame'
 import Bootstrap from '../scenes/Bootstrap'
 
-//下列的代码主要是来创建房间表单组件，它使用了Material-UI库中的各种组件来构建用户界面
-
 const CreateRoomFormWrapper = styled.form`
   display: flex;
   flex-direction: column;

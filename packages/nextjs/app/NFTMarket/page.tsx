@@ -53,7 +53,7 @@ const AllNFTs: NextPage = () => {
   // 从数据库获取已上架的NFT
   const fetchListedNFTs = async () => {
     try {
-      const response = await fetch('/api/Nft');
+      const response = await fetch('/api/nft');
       
       if (!response.ok) {
         throw new Error('获取NFT数据失败');

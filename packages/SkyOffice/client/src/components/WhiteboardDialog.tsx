@@ -6,8 +6,6 @@ import CloseIcon from '@mui/icons-material/Close'
 import { useAppSelector, useAppDispatch } from '../hooks'
 import { closeWhiteboardDialog } from '../stores/WhiteboardStore'
 
-//以下的代码是用在程序中显示一个白板对话框，用户可以通过点击关闭按钮来关闭对话框
-
 const Backdrop = styled.div`
   position: fixed;
   top: 0;

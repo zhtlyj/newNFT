@@ -23,8 +23,6 @@ import { getAvatarString, getColorByString } from '../util'
 import phaserGame from '../PhaserGame'
 import Bootstrap from '../scenes/Bootstrap'
 
-//下列的代码主要的功能是显示所有可用的自定义房间，包括房间名称、描述、ID、当前人数和加入按钮，并且允许玩家通过密码加入受密码保护的房间。
-
 const MessageText = styled.p`
   margin: 10px;
   font-size: 18px;
@@ -124,7 +122,7 @@ export const CustomRoomTable = () => {
   }
 
   return availableRooms.length === 0 ? (
-    <MessageText>There are no custom rooms now, create one or join the public lobby.</MessageText>
+    <MessageText>现在没有自定义房间，请创建一个或加入公共大厅。</MessageText>
   ) : (
     <>
       <CustomRoomTableContainer component={Paper}>
