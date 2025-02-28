@@ -48,7 +48,7 @@ const CreateBox: NextPage = () => {
   // 从数据库获取NFT数据
   const fetchNFTs = async () => {
     try {
-      const response = await fetch('/api/nft');
+      const response = await fetch('/api/Nft');
       
       if (!response.ok) {
         throw new Error('获取NFT数据失败');
@@ -139,7 +139,7 @@ const CreateBox: NextPage = () => {
         // 延迟检查价格更新
         setTimeout(async () => {
           try {
-            const response = await fetch('/api/nft/box-price');
+            const response = await fetch('/api/Nft/box-price');
             const data = await response.json();
             if (data.price && Number(data.price) > 0) {
               message.success("价格更新已确认，现在可以添加NFT到盲盒了");

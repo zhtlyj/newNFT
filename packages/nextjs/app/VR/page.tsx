@@ -38,7 +38,6 @@ const VRPage = () => {
           allow="camera; microphone; display-capture; autoplay; clipboard-write"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           src="https://demo.corporate-metaverse.com/join"
-          
         />
       </div>
     </div>

@@ -4,11 +4,47 @@ import { useState, useEffect, useMemo } from "react";
 import type { NextPage } from "next";
 import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldEventHistory } from "~~/hooks/scaffold-eth";
-import { useNetwork } from "wagmi";
+import { useNetwork, useAccount } from "wagmi";
+
+interface TransferEvent {
+  type: 'Transfer';
+  displayName: string;
+  args: {
+    from: string;
+    to: string;
+    tokenId: bigint;
+  };
+  block: {
+    number: bigint;
+    timestamp: bigint;
+  };
+}
+
+interface PurchaseEvent {
+  type: 'Purchase';
+  displayName: string;
+  args: {
+    buyer: string;
+    seller: string;
+    tokenId: bigint;
+    price: bigint;
+  };
+  block: {
+    number: bigint;
+    timestamp: bigint;
+  };
+}
+
+type Event = TransferEvent | PurchaseEvent;
 
 const TransactionHistory: NextPage = () => {
   const [glowEffect, setGlowEffect] = useState(false);
   const { chain } = useNetwork();
+  const { address: currentUserAddress } = useAccount();
+  const [showOnlyMyTransactions, setShowOnlyMyTransactions] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [filterAddress, setFilterAddress] = useState("");
+  const [showAllTransactions, setShowAllTransactions] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -57,11 +93,22 @@ const TransactionHistory: NextPage = () => {
         ...event,
         type: 'Transfer',
         displayName: '转移',
+        args: {
+          from: event.args[0],
+          to: event.args[1],
+          tokenId: event.args[2],
+        }
       })),
       ...(currentPurchaseEvents || []).map(event => ({
         ...event,
         type: 'Purchase',
         displayName: '购买',
+        args: {
+          tokenId: event.args[0],
+          buyer: event.args[1],
+          seller: event.args[2],
+          price: event.args[3],
+        }
       })),
     ];
 
@@ -228,28 +275,243 @@ const TransactionHistory: NextPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8; // 每页显示12条数据
 
-  // 计算分页数据
+  // 修改过滤交易的函数
+  const filteredTransactions = useMemo(() => {
+    if (!showOnlyMyTransactions || !currentUserAddress) {
+      return allEvents;
+    }
+    
+    return allEvents.filter((event) => {
+      const userAddress = currentUserAddress.toLowerCase();
+      
+      if (event.type === 'Transfer') {
+        const from = event.args.from.toLowerCase();
+        const to = event.args.to.toLowerCase();
+        return from === userAddress || to === userAddress;
+      } 
+      
+      if (event.type === 'Purchase') {
+        const buyer = event.args.buyer.toLowerCase();
+        const seller = event.args.seller.toLowerCase();
+        return buyer === userAddress || seller === userAddress;
+      }
+      
+      return false;
+    });
+  }, [allEvents, currentUserAddress, showOnlyMyTransactions]);
+
+  // 修改分页逻辑，使用 filteredTransactions 而不是 allEvents
   const paginatedEvents = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return allEvents?.slice(startIndex, endIndex) || [];
-  }, [allEvents, currentPage]);
+    return filteredTransactions?.slice(startIndex, endIndex) || [];
+  }, [filteredTransactions, currentPage, itemsPerPage]);
 
-  // 计算总页数
-  const totalPages = Math.ceil((allEvents?.length || 0) / itemsPerPage);
+  // 修改总页数计算
+  const totalPages = Math.ceil((filteredTransactions?.length || 0) / itemsPerPage);
 
-  // 处理页码变化
+  // 修改分页处理函数
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    // 滚动到页面顶部
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 添加过渡类
+    const tbody = document.querySelector('tbody');
+    if (tbody) {
+      tbody.classList.add('changing-page');
+      setTimeout(() => {
+        setCurrentPage(page);
+        setTimeout(() => {
+          tbody.classList.remove('changing-page');
+        }, 50);
+      }, 300);
+    } else {
+      setCurrentPage(page);
+    }
   };
+
+  // 修改过滤切换处理
+  const handleFilterChange = (showOnlyMine: boolean) => {
+    const tbody = document.querySelector('tbody');
+    if (tbody) {
+      tbody.classList.add('changing-filter');
+      setTimeout(() => {
+        setShowOnlyMyTransactions(showOnlyMine);
+        setCurrentPage(1);
+        setTimeout(() => {
+          tbody.classList.remove('changing-filter');
+        }, 50);
+      }, 300);
+    } else {
+      setShowOnlyMyTransactions(showOnlyMine);
+      setCurrentPage(1);
+    }
+  };
+
+  // 修改表格渲染部分
+  const renderAddress = (event: any) => {
+    if (event.type === 'Transfer') {
+      return (
+        <>
+          <td className="px-6 py-4">
+            {formatAddressWithLabel(event.args.from, 'from')}
+          </td>
+          <td className="px-6 py-4">
+            {formatAddressWithLabel(event.args.to, 'to')}
+          </td>
+        </>
+      );
+    } else if (event.type === 'Purchase') {
+      return (
+        <>
+          <td className="px-6 py-4">
+            {formatAddressWithLabel(event.args.seller, 'from')}
+          </td>
+          <td className="px-6 py-4">
+            {formatAddressWithLabel(event.args.buyer, 'to')}
+          </td>
+        </>
+      );
+    }
+  };
+
+  // 修改统计信息的计算
+  const getActiveAddresses = (events: any[]) => {
+    const addresses = new Set<string>();
+    events.forEach(event => {
+      if (event.type === 'Transfer') {
+        addresses.add(event.args.from.toLowerCase());
+        addresses.add(event.args.to.toLowerCase());
+      } else if (event.type === 'Purchase') {
+        addresses.add(event.args.buyer.toLowerCase());
+        addresses.add(event.args.seller.toLowerCase());
+      }
+    });
+    // 移除零地址
+    addresses.delete('0x0000000000000000000000000000000000000000');
+    return addresses.size;
+  };
+
+  // 修改渲染交易项的函数
+  const renderTransactionItem = (event: Event, index: number) => (
+    <tr
+      key={`${event.type}-${event.args.tokenId}-${event.block?.number?.toString()}`}
+      className="tr-animate"
+      style={{
+        '--delay': `${index * 50}ms`,
+      } as React.CSSProperties}
+    >
+      <td className="px-6 py-4">
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm
+          ${event.type === 'Transfer' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}
+        >
+          {getEventTypeDisplay(event)}
+        </span>
+      </td>
+      <td className="px-6 py-4">
+        <div className="flex items-center space-x-2">
+          {/* 修改 TokenID 显示 */}
+          {(() => {
+            const { status, displayClass } = getTokenStatus(event);
+            return (
+              <>
+                <div className={`w-8 h-8 rounded-lg ${displayClass} flex items-center justify-center text-white font-bold`}>
+                  #{event.args.tokenId?.toString()}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-300">
+                    #{event.args.tokenId?.toString()}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {status === 'mint' && '新铸造'}
+                    {status === 'burn' && '已销毁'}
+                    {status === 'transfer' && '转移'}
+                  </span>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </td>
+      {renderAddress(event)}
+      <td className="px-6 py-4">
+        <a
+          href={getExplorerUrl(event.block?.number || BigInt(0))}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-purple-400 hover:text-purple-300 transition-colors"
+        >
+          {event.block?.number?.toString() || '0'}
+        </a>
+      </td>
+      <td className="px-6 py-4">
+        {getEventHash(event) ? (
+          <a
+            href={getTransactionUrl(getEventHash(event))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 transition-colors"
+          >
+            {formatTransactionHash(getEventHash(event))}
+          </a>
+        ) : (
+          <span className="text-gray-400">-</span>
+        )}
+      </td>
+      <td className="px-6 py-4 text-gray-400 text-sm">
+        {event.block?.timestamp ? new Date(Number(event.block.timestamp) * 1000).toLocaleString() : '-'}
+      </td>
+    </tr>
+  );
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center mt-10">
-        <div className="animate-pulse">
-          <div className="w-16 h-16 border-4 border-purple-500 rounded-full animate-spin border-t-transparent"></div>
+      <div className="min-h-screen bg-[#1a1147] py-8 relative overflow-hidden">
+        <div className="container mx-auto px-4 relative">
+          {/* 标题部分和切换按钮的容器 */}
+          <div className="flex justify-between items-start mb-12">
+            {/* 标题部分 */}
+            <div className="text-center relative flex-grow">
+              <h1 className="text-5xl font-bold mb-2 cyberpunk-text relative">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                  交易历史记录
+                </span>
+              </h1>
+              <p className="text-gray-400 text-lg">TRANSACTION HISTORY - {getNetworkName()}</p>
+            </div>
+          </div>
+
+          {/* 表格容器 */}
+          <div className="table-container bg-[#231564]/50 rounded-xl overflow-hidden backdrop-blur-sm border border-[#3d2b85]">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#3d2b85]">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-purple-400">类型</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-purple-400">Token ID</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-purple-400">发送方</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-purple-400">接收方</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-purple-400">区块</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-purple-400">交易哈希</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-purple-400">时间</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#3d2b85]">
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <div className="loading-container">
+                      <div 
+                        className="glitch-text loading-text"
+                        data-text="正在加载交易记录"
+                      >
+                        正在加载交易记录
+                      </div>
+                      <div className="cyberpunk-loader"></div>
+                      <div className="scanning-text">
+                        SCANNING BLOCKCHAIN DATA...
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -266,43 +528,87 @@ const TransactionHistory: NextPage = () => {
       <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent animate-pulse"></div>
 
       <div className="container mx-auto px-4 relative">
-        {/* 标题部分 */}
-        <div className="text-center mb-12 relative">
-          <div className={`absolute inset-0 bg-purple-500/20 blur-3xl transition-opacity duration-1000 ${glowEffect ? 'opacity-30' : 'opacity-0'}`}></div>
-          <h1 className="text-5xl font-bold mb-2 cyberpunk-text relative">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-text-shine">
-              交易历史记录
-            </span>
-          </h1>
-          <p className="text-gray-400 text-lg">TRANSACTION HISTORY - {getNetworkName()}</p>
+        {/* 标题部分和切换按钮的容器 */}
+        <div className="flex justify-between items-start mb-12">
+          {/* 标题部分 */}
+          <div className="text-center relative flex-grow">
+            <div className={`absolute inset-0 bg-purple-500/20 blur-3xl transition-opacity duration-1000 ${glowEffect ? 'opacity-30' : 'opacity-0'}`}></div>
+            <h1 className="text-5xl font-bold mb-2 cyberpunk-text relative">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-text-shine">
+                交易历史记录
+              </span>
+            </h1>
+            <p className="text-gray-400 text-lg">TRANSACTION HISTORY - {getNetworkName()}</p>
+          </div>
+
+          {/* 切换按钮移到右上角 */}
+          <div className="flex flex-col items-end gap-2">
+            <div className="bg-[#231564] p-1 rounded-xl shadow-lg border border-purple-500/30">
+              <div className="flex items-center">
+                <button
+                  onClick={() => handleFilterChange(false)}
+                  className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 ${
+                    !showOnlyMyTransactions
+                      ? 'bg-purple-500 text-white shadow-lg'
+                      : 'text-gray-400 hover:text-white hover:bg-purple-500/20'
+                  }`}
+                >
+                  全部交易记录
+                </button>
+                <button
+                  onClick={() => handleFilterChange(true)}
+                  className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 ${
+                    showOnlyMyTransactions
+                      ? 'bg-purple-500 text-white shadow-lg'
+                      : 'text-gray-400 hover:text-white hover:bg-purple-500/20'
+                  }`}
+                >
+                  {currentUserAddress ? '我的交易记录' : '请先连接钱包'}
+                </button>
+              </div>
+            </div>
+            {/* 当前视图提示 */}
+            {showOnlyMyTransactions && currentUserAddress && (
+              <p className="text-sm text-purple-400">
+                当前显示地址: {currentUserAddress.slice(0, 6)}...{currentUserAddress.slice(-4)}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* 统计信息 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {[
-            { title: "总交易数", value: allEvents?.length || 0, icon: "" },
+            { 
+              title: showOnlyMyTransactions ? "我的交易数" : "总交易数", 
+              value: filteredTransactions.length, 
+              icon: "📊" 
+            },
             { 
               title: "最新区块", 
-              value: allEvents && allEvents.length > 0
-                ? Number(allEvents[0].block?.number || 0).toLocaleString()
+              value: filteredTransactions.length > 0
+                ? Number(filteredTransactions[0].block?.number || 0).toLocaleString()
                 : 0,
               icon: "🔗"
             },
             { 
               title: "活跃地址", 
-              value: new Set(allEvents?.map(e => e.args.from)).size || 0,
+              value: getActiveAddresses(filteredTransactions),
               icon: "👥"
             }
           ].map((stat, index) => (
             <div 
               key={index}
-              className="bg-[#231564]/50 rounded-xl p-6 backdrop-blur-sm border border-[#3d2b85] relative group hover:border-purple-500 transition-all duration-300"
+              className="stat-card bg-[#231564]/50 rounded-xl p-6 backdrop-blur-sm border border-[#3d2b85] relative group hover:border-purple-500 transition-all duration-300"
+              style={{ animationDelay: `${index * 150}ms` }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="relative">
                 <div className="text-2xl mb-2">{stat.icon}</div>
                 <div className="text-gray-400 mb-2 text-sm uppercase tracking-wider">{stat.title}</div>
-                <div className="text-3xl font-bold text-white cyberpunk-number">{stat.value}</div>
+                <div className="text-3xl font-bold text-white cyberpunk-number number-animate">
+                  {stat.value}
+                </div>
               </div>
               <div className="absolute -bottom-px left-0 w-full h-px bg-gradient-to-r from-transparent via-purple-500 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
             </div>
@@ -310,7 +616,7 @@ const TransactionHistory: NextPage = () => {
         </div>
 
         {/* 交易列表 */}
-        <div className="bg-[#231564]/50 rounded-xl overflow-hidden backdrop-blur-sm border border-[#3d2b85] relative">
+        <div className="bg-[#231564]/50 rounded-xl overflow-hidden backdrop-blur-sm border border-[#3d2b85] relative table-container">
           <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
           <div className="overflow-x-auto relative">
             <table className="w-full">
@@ -328,88 +634,23 @@ const TransactionHistory: NextPage = () => {
               <tbody className="divide-y divide-[#3d2b85]">
                 {!paginatedEvents || paginatedEvents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                      暂无交易记录
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="loading-container">
+                        <div 
+                          className="glitch-text loading-text"
+                          data-text="正在加载交易记录"
+                        >
+                          正在加载交易记录
+                        </div>
+                        <div className="cyberpunk-loader"></div>
+                        <div className="scanning-text">
+                          SCANNING BLOCKCHAIN DATA...
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  paginatedEvents.map((event, index) => {
-                    // 添加日志
-                    logEventDetails(event);
-                    
-                    const timestamp = event.block?.timestamp 
-                      ? new Date(Number(event.block.timestamp) * 1000).toLocaleString()
-                      : '-';
-                    
-                    // 使用新的获取哈希方法
-                    const txHash = getEventHash(event);
-                    
-                    return (
-                      <tr key={index} className="hover:bg-[#3d2b85]/20 transition-colors">
-                        <td className="px-6 py-4">
-                          {getEventTypeDisplay(event)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            {/* 修改 TokenID 显示 */}
-                            {(() => {
-                              const { status, displayClass } = getTokenStatus(event);
-                              return (
-                                <>
-                                  <div className={`w-8 h-8 rounded-lg ${displayClass} flex items-center justify-center text-white font-bold`}>
-                                    #{event.args.tokenId?.toString()}
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-gray-300">
-                                      #{event.args.tokenId?.toString()}
-                                    </span>
-                                    <span className="text-xs text-gray-400">
-                                      {status === 'mint' && '新铸造'}
-                                      {status === 'burn' && '已销毁'}
-                                      {status === 'transfer' && '转移'}
-                                    </span>
-                                  </div>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {formatAddressWithLabel(event.args.from, 'from')}
-                        </td>
-                        <td className="px-6 py-4">
-                          {formatAddressWithLabel(event.args.to, 'to')}
-                        </td>
-                        <td className="px-6 py-4">
-                          <a
-                            href={getExplorerUrl(event.block?.number || BigInt(0))}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-purple-400 hover:text-purple-300 transition-colors"
-                          >
-                            {event.block?.number?.toString() || '0'}
-                          </a>
-                        </td>
-                        <td className="px-6 py-4">
-                          {txHash ? (
-                            <a
-                              href={getTransactionUrl(txHash)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-purple-400 hover:text-purple-300 transition-colors"
-                            >
-                              {formatTransactionHash(txHash)}
-                            </a>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-gray-400 text-sm">
-                          {timestamp}
-                        </td>
-                      </tr>
-                    );
-                  })
+                  paginatedEvents.map((event, index) => renderTransactionItem(event, index))
                 )}
               </tbody>
             </table>
@@ -464,10 +705,15 @@ const TransactionHistory: NextPage = () => {
           </div>
         )}
 
-        {/* 分页信息 */}
+        {/* 更新分页信息显示 */}
         <div className="mt-4 text-center text-gray-400 text-sm">
           第 {currentPage} 页，共 {totalPages} 页
-          （显示 {paginatedEvents.length} 条，共 {allEvents?.length || 0} 条记录）
+          （显示 {filteredTransactions.length} 条，共 {allEvents?.length || 0} 条记录）
+          {showOnlyMyTransactions && currentUserAddress && (
+            <span className="ml-2 text-purple-400">
+              - 仅显示与您地址相关的交易
+            </span>
+          )}
         </div>
 
         {/* 页脚说明 */}
@@ -512,6 +758,112 @@ const TransactionHistory: NextPage = () => {
         .animate-text-shine {
           background-size: 200% auto;
           animation: text-shine 3s linear infinite;
+        }
+
+        /* 表格行动画 */
+        .tr-animate {
+          opacity: 0;
+          transform: translateY(10px);
+          animation: fadeInUp 0.5s ease forwards;
+          animation-delay: var(--delay, 0ms);
+        }
+
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* 分页切换动画 */
+        .changing-page tbody {
+          opacity: 0;
+          transform: translateX(-20px);
+          transition: all 0.3s ease;
+        }
+
+        /* 表格容器动画 */
+        .table-container {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .table-container::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 200%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(128, 90, 213, 0.1),
+            transparent
+          );
+          animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
+        /* 统计卡片动画 */
+        .stat-card {
+          position: relative;
+          overflow: hidden;
+          transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+          transform: translateY(-2px);
+        }
+
+        .stat-card::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          left: 0;
+          background: linear-gradient(
+            45deg,
+            transparent 0%,
+            rgba(128, 90, 213, 0.1) 50%,
+            transparent 100%
+          );
+          transform: translateX(-100%);
+          transition: transform 0.6s ease;
+        }
+
+        .stat-card:hover::after {
+          transform: translateX(100%);
+        }
+
+        /* 数字滚动动画 */
+        .number-animate {
+          animation: numberScale 0.3s ease-out;
+        }
+
+        @keyframes numberScale {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+          100% {
+            transform: scale(1);
+          }
         }
       `}</style>
     </div>

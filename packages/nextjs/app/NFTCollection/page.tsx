@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MyHoldings } from "~~/components/simpleNFT";
 import { useScaffoldContractRead } from "~~/hooks/scaffold-eth";
-import { notification } from "~~/utils/scaffold-eth";
+import { notification } from "antd";
 import type { ReactNode } from "react";
 
 interface NftInfo {
@@ -24,10 +24,14 @@ const NFTCollection: NextPage = () => {
   const { address: connectedAddress } = useAccount();
   const [createdNFTs, setCreatedNFTs] = useState<NftInfo[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedType, setSelectedType] = useState<string>('Buy Now');
+  const [selectedType, setSelectedType] = useState<string>('All');
   const [sortType, setSortType] = useState<string>('newest');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isFirstLoading, setIsFirstLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]); // 修改初始最大值为 100
+  const [searchTerm, setSearchTerm] = useState("");
+  const [shouldPoll, setShouldPoll] = useState(true);
+  const [isHighPerformance, setIsHighPerformance] = useState(false);
 
   const { data: tokenIdCounter } = useScaffoldContractRead({
     contractName: "YourCollectible",
@@ -36,43 +40,203 @@ const NFTCollection: NextPage = () => {
     cacheOnBlock: true,
   });
 
-  // 从数据库获取 NFT 数据
-  const fetchNFTs = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/nft');
-      
-      if (!response.ok) {
-        throw new Error('获取NFT数据失败');
+  // 将通知配置和函数移到组件内部
+  useEffect(() => {
+    // 配置通知样式
+    notification.config({
+      placement: 'topRight',
+      duration: 3,
+      style: {
+        background: '#231564',
+        border: '1px solid #3d2b85',
+        borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+      },
+    });
+  }, []); // 只在组件挂载时执行一次
+
+  // 修改通知函数
+  const showNotification = (type: 'success' | 'info' | 'error', title: string, message: string) => {
+    notification[type]({
+      message: <span style={{ color: '#ffffff', fontSize: '16px', fontWeight: '500' }}>{title}</span>,
+      description: <span style={{ color: '#ffffff', opacity: 0.9 }}>{message}</span>,
+      style: {
+        background: '#231564',
+        border: '1px solid #3d2b85',
+        borderRadius: '12px',
+        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
+      },
+      className: 'dark-theme-notification',
+      closeIcon: (
+        <div className="text-white/60 hover:text-white/90 transition-colors duration-200 text-lg">
+          ×
+        </div>
+      ),
+      icon: (
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full 
+          ${type === 'success' ? 'bg-green-500' : 
+            type === 'info' ? 'bg-blue-500' : 
+            'bg-red-500'}`}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            className="w-5 h-5"
+          >
+            {type === 'success' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            ) : type === 'info' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            )}
+          </svg>
+        </div>
+      ),
+    });
+  };
+
+  // 添加全局样式
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .dark-theme-notification {
+        background: #231564 !important;
+        border: 1px solid #3d2b85 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4) !important;
       }
 
-      const data = await response.json();
-      console.log('从数据库获取的NFT数据:', data);
-      
-      if (data.nfts) {
-        setCreatedNFTs(data.nfts);
+      .dark-theme-notification .ant-notification-notice-message {
+        color: white !important;
+        font-weight: 600 !important;
+        font-size: 16px !important;
+        margin-bottom: 4px !important;
       }
+
+      .dark-theme-notification .ant-notification-notice-description {
+        color: rgba(255, 255, 255, 0.85) !important;
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+      }
+
+      .dark-theme-notification .ant-notification-notice {
+        padding: 16px !important;
+      }
+
+      .dark-theme-notification .ant-notification-notice-icon {
+        margin-top: 4px !important;
+      }
+
+      .dark-theme-notification .ant-notification-notice-close {
+        top: 16px !important;
+        right: 16px !important;
+      }
+
+      .dark-theme-notification .ant-notification-notice-with-icon .ant-notification-notice-message, 
+      .dark-theme-notification .ant-notification-notice-with-icon .ant-notification-notice-description {
+        margin-left: 48px !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // 修改 fetchNFTs 函数，添加上一个地址的引用
+  const previousAddressRef = useRef<string | undefined>();
+
+  const fetchNFTs = async () => {
+    try {
+      if (isFirstLoading) {
+        setIsLoading(true);
+      }
+
+      if (!connectedAddress) {
+        setCreatedNFTs([]);
+        setShouldPoll(false);
+        return;
+      }
+
+      // 检查是否是地址切换
+      const isAddressChanged = previousAddressRef.current && previousAddressRef.current !== connectedAddress;
+      previousAddressRef.current = connectedAddress;
+
+      const response = await fetch(`/api/Nft/owner?address=${connectedAddress}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          // 只在非地址切换且有之前的 NFT 数据时显示通知
+          if (!isAddressChanged && createdNFTs.length > 0) {
+            showNotification(
+              'info',
+              'NFT #33 已下架',
+              '下架成功'
+            );
+          }
+          setCreatedNFTs([]);
+          setShouldPoll(false);
+          return;
+        }
+        throw new Error(data.message || '获取NFT数据失败');
+      }
+
+      setShouldPoll(true);
+      setCreatedNFTs(data.nfts);
+      
     } catch (error) {
       console.error('获取NFT数据出错:', error);
-      notification.error(error instanceof Error ? error.message : "获取NFT数据失败");
+      setCreatedNFTs([]);
     } finally {
-      setIsLoading(false);
+      if (isFirstLoading) {
+        setIsFirstLoading(false);
+        setIsLoading(false);
+      }
     }
   };
 
   // 组件加载时获取数据，并定期刷新
   useEffect(() => {
-    fetchNFTs();
-    
-    // 每30秒刷新一次数据
-    const intervalId = setInterval(fetchNFTs, 30000);
-    
-    return () => clearInterval(intervalId);
-  }, [connectedAddress]); 
+    let intervalId: NodeJS.Timeout;
+
+    const initFetch = async () => {
+      if (connectedAddress) {
+        await fetchNFTs();
+        if (shouldPoll) {
+          intervalId = setInterval(fetchNFTs, 30000);
+        }
+      } else {
+        setCreatedNFTs([]);
+        setShouldPoll(false);
+        setIsFirstLoading(true);
+      }
+    };
+
+    initFetch();
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [connectedAddress, shouldPoll]);
 
   const filteredNFTs = useMemo(() => {
     let filtered = [...createdNFTs];
     
+    // 根据上架状态过滤
+    if (selectedType === 'Listed') {
+      filtered = filtered.filter(nft => nft.isListed);
+    } else if (selectedType === 'Not Listed') {
+      filtered = filtered.filter(nft => !nft.isListed);
+    }
+    // 'All' 类型不需要过滤，显示所有 NFT
+
+    // 其他过滤条件保持不变
     if (selectedCategory) {
       filtered = filtered.filter(nft => 
         nft.attributes.some(attr => 
@@ -81,18 +245,23 @@ const NFTCollection: NextPage = () => {
       );
     }
 
-    if (selectedType === 'Buy Now') {
-      filtered = filtered.filter(nft => nft.isListed && nft.price !== '');
-    }
-
     // 添加价格范围过滤
     filtered = filtered.filter(nft => {
       const price = parseFloat(nft.price) || 0;
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
+    // 添加搜索过滤
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(nft => 
+        nft.name.toLowerCase().includes(term) || 
+        nft.description.toLowerCase().includes(term)
+      );
+    }
+
     return filtered;
-  }, [createdNFTs, selectedCategory, selectedType, priceRange]);
+  }, [createdNFTs, selectedType, selectedCategory, priceRange, searchTerm]);
 
   // 排序函数
   const sortedNFTs = useMemo(() => {
@@ -157,8 +326,23 @@ const NFTCollection: NextPage = () => {
     });
   };
 
+  // 从 localStorage 加载性能模式设置
+  useEffect(() => {
+    const savedMode = localStorage.getItem('performanceMode');
+    if (savedMode) {
+      setIsHighPerformance(savedMode === 'high');
+    }
+  }, []);
+
+  // 切换性能模式
+  const togglePerformanceMode = () => {
+    const newMode = !isHighPerformance;
+    setIsHighPerformance(newMode);
+    localStorage.setItem('performanceMode', newMode ? 'high' : 'normal');
+  };
+
   return (
-    <div className="min-h-screen bg-[#1a1147]">
+    <div className={`min-h-screen bg-[#1a1147] transition-performance ${!isHighPerformance ? 'normal-mode' : ''}`}>
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* 搜索框 - 进一步减小尺寸 */}
         <div className="mb-3">
@@ -167,6 +351,8 @@ const NFTCollection: NextPage = () => {
             <input
               type="text"
               placeholder="Search Products"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-[#231564] border border-[#3d2b85] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 pl-8"
             />
             <svg
@@ -216,7 +402,7 @@ const NFTCollection: NextPage = () => {
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-[#9d8ec4] mb-4">NFT Type</h2>
               <div className="space-y-1">
-                {['Buy Now', 'Has Offers', 'On Auction'].map((type) => (
+                {['All', 'Listed', 'Not Listed'].map((type) => (
                   <button
                     key={type}
                     onClick={() => setSelectedType(type === selectedType ? '' : type)}
@@ -338,23 +524,89 @@ const NFTCollection: NextPage = () => {
                 </select>
               </div>
 
-              {/* NFT列表 - 添加加载状态 */}
+              {/* NFT列表区域 */}
               <div className="bg-[#1a1147]/50 rounded-lg p-4">
-                {isLoading ? (
+                {!connectedAddress ? (
+                  // 未连接钱包时显示提示
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <svg 
+                      className="w-16 h-16 mb-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-400 mb-2">请连接钱包</h3>
+                    <p className="text-gray-500">连接钱包后即可查看您的 NFT 收藏</p>
+                  </div>
+                ) : isFirstLoading ? (
                   <div className="flex justify-center items-center h-64">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
                   </div>
-                ) : sortedNFTs.length > 0 ? (
-                  <MyHoldings filteredNFTs={sortedNFTs} onNFTUpdate={fetchNFTs} />
-                ) : (
-                  <div className="text-center text-gray-400 py-12">
-                    暂无NFT数据
+                ) : createdNFTs.length === 0 ? (
+                  // 钱包中没有任何 NFT 时显示
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <svg 
+                      className="w-16 h-16 mb-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                      />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-400 mb-2">暂无 NFT</h3>
+                    <p className="text-gray-500">您的钱包中还没有 NFT，快去创建或购买吧！</p>
                   </div>
+                ) : sortedNFTs.length === 0 ? (
+                  // 有 NFT 但当前筛选条件下没有匹配项时显示
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <svg 
+                      className="w-16 h-16 mb-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                      />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-400 mb-2">未找到匹配的 NFT</h3>
+                    <p className="text-gray-500">当前筛选条件下没有匹配的 NFT</p>
+                  </div>
+                ) : (
+                  <MyHoldings filteredNFTs={sortedNFTs} onNFTUpdate={fetchNFTs} />
                 )}
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 添加性能模式切换按钮 */}
+      <button 
+        className="performance-toggle"
+        onClick={togglePerformanceMode}
+      >
+        {isHighPerformance ? '切换到普通模式' : '切换到高性能模式'}
+      </button>
+      
+      {/* 添加性能模式指示器 */}
+      <div className="performance-indicator">
+        {isHighPerformance ? '高性能模式' : '普通模式'}
       </div>
     </div>
   );

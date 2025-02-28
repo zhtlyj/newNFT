@@ -34,7 +34,7 @@ const saveNFTToDatabase = async (nftData: NftInfo) => {
       isListed: false
     });
     
-    const response = await fetch('/api/nft', {
+    const response = await fetch('/api/Nft', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -411,7 +411,7 @@ const CreateNFT: NextPage = () => {
         await saveNFTToDatabase(newNftInfo);
         showNotification('success', {
           message: "成功",
-          description: "NFT创建成功并保存到数据库"
+          description: "您的NFT创建成功"
         });
 
         setCreatedNFTs((prevNFTs) => {
@@ -835,15 +835,7 @@ const CreateNFT: NextPage = () => {
                     )}
                     
                     {/* 创建者头像 - 左下角 */}
-                    {nftInfo.name && (
-                      <div className="absolute left-4 -bottom-6 w-12 h-12 rounded-full border-4 border-[#231564] overflow-hidden">
-                        <img
-                          src="/profile.jpg"
-                          alt="creator"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
+                    
                   </div>
 
                   {/* NFT信息区域 */}

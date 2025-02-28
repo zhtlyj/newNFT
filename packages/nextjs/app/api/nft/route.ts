@@ -266,11 +266,49 @@ export async function POST(request: Request) {
 }
 
 // GET 处理函数 - 获取NFT列表
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // 获取 URL 中的地址参数
+    const { searchParams } = new URL(request.url);
+    const address = searchParams.get('address');
+
+    // 连接数据库
     await dbConnect();
-    const nfts = await NFT.find().sort({ createdAt: -1 });
     
+    // 检查连接状态
+    const connectionState = checkConnection();
+    console.log('MongoDB连接状态:', connectionState);
+    
+    if (connectionState !== 1) {
+      throw new Error('MongoDB连接未就绪');
+    }
+
+    // 如果提供了地址，则按地址过滤
+    const query = address ? { owner: address.toLowerCase() } : {};
+
+    // 使用 mongoose 模型获取 NFTs，确保使用正确的集合名称
+    const nfts = await NFT.find(query)
+      .select({
+        image: 1,
+        id: 1,
+        name: 1,
+        attributes: 1,
+        owner: 1,
+        price: 1,
+        description: 1,
+        CID: 1,
+        isListed: 1,
+        createdAt: 1
+      })
+      .sort({ createdAt: -1 })
+      .lean(); // 使用 lean() 获取纯 JavaScript 对象
+
+    console.log('查询结果:', {
+      query,
+      nftsCount: nfts.length,
+      firstNft: nfts[0]
+    });
+
     return new NextResponse(
       JSON.stringify({ nfts }),
       { 
@@ -278,12 +316,15 @@ export async function GET() {
         headers: { 'Content-Type': 'application/json' }
       }
     );
+
   } catch (error) {
     console.error('获取NFT数据失败:', error);
     return new NextResponse(
       JSON.stringify({
         message: '获取NFT数据失败',
-        error: error instanceof Error ? error.message : '未知错误'
+        error: error instanceof Error ? error.message : '未知错误',
+        stack: error instanceof Error ? error.stack : undefined,
+        connectionState: checkConnection()
       }),
       { 
         status: 500,

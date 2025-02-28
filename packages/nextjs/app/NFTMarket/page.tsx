@@ -11,15 +11,35 @@ import StepsGuide from "./components/StepsGuide";
 import NFTCarousel from "./components/NFTCarousel";
 import Image from "next/image";
 import { message } from "antd";
+import type { PaginationProps } from 'antd';
 
-interface Collectible {
-  image: string;
+// 添加必要的类型定义
+interface NFTAttribute {
+  trait_type: string;
+  value: string;
+}
+
+interface NFTInfo {
   id: number;
   name: string;
-  attributes: { trait_type: string; value: string }[];
-  owner: string;
   description: string;
-  CID: string;
+  image: string;
+  owner: string;
+  price: string;
+  isListed: boolean;
+  attributes: NFTAttribute[];
+  CID?: string;
+}
+
+interface Collectible {
+  id: number;
+  name: string;
+  description: string;
+  image: string;
+  owner: string;
+  price: string;
+  attributes: NFTAttribute[];
+  CID?: string;
 }
 
 interface ListedNftInfo {
@@ -36,13 +56,16 @@ const AllNFTs: NextPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchText, setSearchText] = useState("");
   const [filteredNFTs, setFilteredNFTs] = useState<Collectible[]>([]);
-  const itemsPerPage = 6;
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const itemsPerPage = 8;
+  const [ownedNFTs, setOwnedNFTs] = useState<number[]>([]);
+  const [sortBy, setSortBy] = useState<string>("newest"); // 排序方式
+  const [filterAttribute, setFilterAttribute] = useState<string>("all"); // 属性过滤
+  const [isHighPerformance, setIsHighPerformance] = useState(false);
 
   const { writeAsync: purchase } = useScaffoldContractWrite({
     contractName: "YourCollectible",
     functionName: "purchase",
+    args: [] as const, // 添加空的 args 数组作为默认值
   });
 
   // 获取账户余额
@@ -53,7 +76,7 @@ const AllNFTs: NextPage = () => {
   // 从数据库获取已上架的NFT
   const fetchListedNFTs = async () => {
     try {
-      const response = await fetch('/api/nft');
+      const response = await fetch('/api/Nft');
       
       if (!response.ok) {
         throw new Error('获取NFT数据失败');
@@ -66,12 +89,11 @@ const AllNFTs: NextPage = () => {
         throw new Error('NFT数据格式错误');
       }
 
-      // 过滤并去重上架的NFT
+      // 添加类型断言
       const uniqueListedNFTs = Array.from(
         new Map(
           data.nfts
             .filter((nft: any) => {
-              // 检查NFT是否有效上架
               const isValid = 
                 nft.isListed === true && 
                 typeof nft.price === 'string' && 
@@ -87,27 +109,20 @@ const AllNFTs: NextPage = () => {
 
               return isValid;
             })
-            .map(nft => [nft.id, nft]) // 使用 id 作为 Map 的键
+            .map((nft: Collectible) => [nft.id, nft])
         ).values()
-      );
-
-      console.log('过滤并去重后的NFT列表:', {
-        total: uniqueListedNFTs.length,
-        nfts: uniqueListedNFTs
-      });
+      ) as Collectible[];
 
       if (uniqueListedNFTs.length > 0) {
         setAllNFTs(uniqueListedNFTs);
         setFilteredNFTs(uniqueListedNFTs);
         
-        // 更新价格信息
         const priceInfo = uniqueListedNFTs.map(nft => ({
           id: nft.id,
           price: nft.price
         }));
         setListedNFTs(priceInfo);
       } else {
-        console.log('没有找到已上架的NFT');
         setAllNFTs([]);
         setFilteredNFTs([]);
         setListedNFTs([]);
@@ -168,28 +183,114 @@ const AllNFTs: NextPage = () => {
     }
   };
 
+  // 修改排序和过滤函数
+  const getSortedAndFilteredNFTs = (nfts: Collectible[]) => {
+    let result = [...nfts];
+
+    // 先进行排序
+    switch (sortBy) {
+      case "newest":
+        result.sort((a, b) => b.id - a.id);
+        break;
+      case "oldest":
+        result.sort((a, b) => a.id - b.id);
+        break;
+      case "priceHighToLow":
+        result.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        break;
+      case "priceLowToHigh":
+        result.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        break;
+      default:
+        break;
+    }
+
+    // 如果选择了"全部"，直接返回排序后的结果
+    if (filterAttribute === "all") {
+      return result;
+    }
+
+    // 否则进行属性过滤
+    return result.filter(nft => 
+      nft.attributes.some(attr => 
+        attr.value.toLowerCase() === filterAttribute.toLowerCase()
+      )
+    );
+  };
+
+  // 修改搜索处理函数
   const handleSearch = (value: string) => {
     setSearchText(value);
     if (value.trim() === "") {
-      setFilteredNFTs(allNFTs);
+      setFilteredNFTs(getSortedAndFilteredNFTs(allNFTs));
     } else {
-      const filtered = allNFTs.filter((nft) =>
-        nft.name.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredNFTs(filtered);
+      const searchTerms = value.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+      
+      const filtered = allNFTs.filter((nft) => {
+        // 检查名称
+        const nameMatch = searchTerms.some(term => 
+          nft.name.toLowerCase().includes(term)
+        );
+        
+        // 检查描述
+        const descriptionMatch = searchTerms.some(term => 
+          nft.description.toLowerCase().includes(term)
+        );
+        
+        // 检查属性
+        const attributesMatch = nft.attributes.some(attr => 
+          searchTerms.some(term => 
+            attr.trait_type.toLowerCase().includes(term) || 
+            attr.value.toLowerCase().includes(term)
+          )
+        );
+        
+        // 检查价格范围（如果搜索词是数字）
+        const priceMatch = searchTerms.some(term => {
+          const numTerm = parseFloat(term);
+          if (!isNaN(numTerm)) {
+            const nftPrice = parseFloat(nft.price);
+            return !isNaN(nftPrice) && Math.abs(nftPrice - numTerm) <= 0.1; // 允许0.1 ETH的误差
+          }
+          return false;
+        });
+
+        return nameMatch || descriptionMatch || attributesMatch || priceMatch;
+      });
+
+      setFilteredNFTs(getSortedAndFilteredNFTs(filtered));
       setCurrentPage(1); // 重置到第一页
     }
   };
 
+  // 修改 useEffect 中的搜索逻辑
   useEffect(() => {
-    const filtered = allNFTs.filter((nft) =>
-      nft.name.toLowerCase().includes(searchText.toLowerCase())
-    );
-    setFilteredNFTs(filtered);
-    setCurrentPage(1); // 重置到第一页
-  }, [searchText, allNFTs]);
+    handleSearch(searchText);
+  }, [searchText, allNFTs]); // 依赖项保持不变
 
+  // 添加一个统一的消息提示函数
+  const showCustomMessage = (content: string) => {
+    notification.info({
+      message: content,
+      className: 'custom-notification',
+      style: {
+        background: '#231564',
+        border: '1px solid #3d2b85',
+        borderRadius: '8px',
+      },
+      messageStyle: {
+        color: '#fff',
+      },
+    });
+  };
+
+  // 修改 openModal 函数
   const openModal = (nft: Collectible) => {
+    // 检查是否已拥有该 NFT
+    if (ownedNFTs.includes(nft.id)) {
+      showCustomMessage('您已拥有该 NFT');
+      return;
+    }
     setSelectedNft(nft);
     setIsModalOpen(true);
   };
@@ -211,6 +312,22 @@ const AllNFTs: NextPage = () => {
     }
 
     try {
+      // 检查是否已拥有该 NFT
+      if (ownedNFTs.includes(selectedNft.id)) {
+        message.info({
+          content: '您已拥有该 NFT',
+          className: 'custom-message',
+          style: {
+            background: '#231564',
+            border: '1px solid #3d2b85',
+            borderRadius: '8px',
+            color: '#fff',
+          },
+        });
+        setIsModalOpen(false);
+        return;
+      }
+
       // 获取NFT价格并验证
       const price = getPriceById(selectedNft.id);
       if (price === "N/A") {
@@ -248,21 +365,59 @@ const AllNFTs: NextPage = () => {
           value: priceInWei,
         });
 
-        // 等待交易被挖矿
         if (result) {
-          // 关闭加载消息
           hide();
 
           // 更新NFT状态
           await updateNFTAfterPurchase(selectedNft.id, connectedAddress);
 
-          message.success("NFT已成功购买并转移到您的账户");
+          // 显示成功消息
+          notification.success({
+            message: 'NFT购买成功',
+            description: (
+              <div className="flex flex-col gap-2">
+                <div className="text-green-400">NFT已成功转移到您的账户</div>
+                <div className="success-checkmark">
+                  <div className="check-icon">
+                    <span className="icon-line line-tip"></span>
+                    <span className="icon-line line-long"></span>
+                    <div className="icon-circle"></div>
+                    <div className="icon-fix"></div>
+                  </div>
+                </div>
+              </div>
+            ),
+            className: 'purchase-success-notification',
+            duration: 4,
+            placement: 'top',
+            style: {
+              background: 'rgba(35, 21, 100, 0.95)',
+              borderLeft: '4px solid #10B981',
+              backdropFilter: 'blur(10px)',
+            }
+          });
+
           setIsModalOpen(false);
+
+          // 添加延迟以确保数据库更新完成
+          setTimeout(async () => {
+            // 重新获取所有数据
+            await Promise.all([
+              fetchListedNFTs(),  // 获取最新的上架NFT列表
+              fetchOwnedNFTs(),   // 更新用户拥有的NFT列表
+            ]);
+
+            // 重置分页到第一页
+            setCurrentPage(1);
+
+            // 重新应用当前的搜索和过滤条件
+            const updatedFiltered = getSortedAndFilteredNFTs(allNFTs);
+            setFilteredNFTs(updatedFiltered);
+          }, 1000); // 1秒延迟
         }
       } catch (error) {
-        // 关闭加载消息
         hide();
-        throw error; // 继续抛出错误以便外层 catch 处理
+        throw error;
       }
 
     } catch (error) {
@@ -283,69 +438,167 @@ const AllNFTs: NextPage = () => {
         }
       }
       
-      message.error(errorMessage);
+      message.error({
+        content: errorMessage,
+        className: 'custom-message',
+        style: {
+          background: '#231564',
+          border: '1px solid #3d2b85',
+          borderRadius: '8px',
+          color: '#fff',
+        },
+      });
     }
   };
 
   // 分页后的数据
   const paginatedNFTs = filteredNFTs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // 自动轮播逻辑
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
-    // 只有当NFT数量大于3时才启动自动轮播
-    if (paginatedNFTs.length > 3 && isAutoPlaying) {
-      intervalId = setInterval(() => {
-        setCurrentIndex(prevIndex => (prevIndex + 1) % paginatedNFTs.length);
-      }, 3000);
+  // 添加获取用户拥有的 NFT 函数
+  const fetchOwnedNFTs = async () => {
+    if (!connectedAddress) {
+      setOwnedNFTs([]);
+      return;
     }
 
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+    try {
+      const response = await fetch(`/api/Nft/owner?address=${connectedAddress}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        // 提取所有拥有的 NFT 的 ID
+        const ownedIds = data.nfts.map((nft: NftInfo) => nft.id);
+        setOwnedNFTs(ownedIds);
+      } else {
+        setOwnedNFTs([]);
       }
-    };
-  }, [paginatedNFTs.length, isAutoPlaying]);
-
-  // 处理手动切换
-  const handlePrev = () => {
-    setIsAutoPlaying(false); // 暂停自动轮播
-    setCurrentIndex(prevIndex => (prevIndex - 1 + paginatedNFTs.length) % paginatedNFTs.length);
+    } catch (error) {
+      console.error('获取拥有的NFT失败:', error);
+      setOwnedNFTs([]);
+    }
   };
 
-  const handleNext = () => {
-    setIsAutoPlaying(false); // 暂停自动轮播
-    setCurrentIndex(prevIndex => (prevIndex + 1) % paginatedNFTs.length);
+  // 在 useEffect 中调用
+  useEffect(() => {
+    fetchOwnedNFTs();
+  }, [connectedAddress]);
+
+  // 修改 notification.config 的类型问题
+  useEffect(() => {
+    notification.config({
+      placement: 'topRight',
+      duration: 3,
+    });
+  }, []);
+
+  // 修改 message 组件的使用
+  const showMessage = (type: 'info' | 'error' | 'success', content: string) => {
+    message[type]({
+      content,
+      className: 'custom-message',
+      style: {
+        background: '#231564',
+        border: '1px solid #3d2b85',
+        borderRadius: '8px',
+        color: '#fff',
+      },
+    });
   };
 
-  // 计算要显示的NFT索引
-  const getVisibleNFTs = () => {
-    if (paginatedNFTs.length === 0) {
-      return [];
-    }
-    
-    if (paginatedNFTs.length <= 3) {
-      // 如果NFT数量小于等于3，直接返回所有NFT
-      return paginatedNFTs;
-    }
+  // 修改 FilterAndSort 组件
+  const FilterAndSort = () => {
+    return (
+      <div className="flex flex-wrap gap-4 mb-6">
+        {/* 排序选项 */}
+        <div className="flex items-center space-x-2">
+          <span className="text-white">排序:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              const sorted = getSortedAndFilteredNFTs(allNFTs);
+              setFilteredNFTs(sorted);
+            }}
+            className="bg-[#231564] text-white border border-[#3d2b85] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500"
+          >
+            <option value="newest">最新</option>
+            <option value="oldest">最早</option>
+            <option value="priceHighToLow">价格从高到低</option>
+            <option value="priceLowToHigh">价格从低到高</option>
+          </select>
+        </div>
 
-    // 如果NFT数量大于3，才进行轮播
-    const visibleNFTs = [];
-    for (let i = 0; i < 3; i++) {
-      const index = (currentIndex + i) % paginatedNFTs.length;
-      visibleNFTs.push(paginatedNFTs[index]);
-    }
-    return visibleNFTs;
+        {/* 属性过滤 */}
+        <div className="flex items-center space-x-2">
+          <span className="text-white">全部:</span>
+          <select
+            value={filterAttribute}
+            onChange={(e) => {
+              setFilterAttribute(e.target.value);
+              const filtered = getSortedAndFilteredNFTs(allNFTs);
+              setFilteredNFTs(filtered);
+            }}
+            className="bg-[#231564] text-white border border-[#3d2b85] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500"
+          >
+            <option value="all">全部</option>
+            <option value="Art">艺术</option>
+            <option value="Music">音乐</option>
+            <option value="Trading Cards">交易卡</option>
+            <option value="Virtual world">虚拟世界</option>
+            <option value="Doodles">涂鸦</option>
+            <option value="Sports">体育</option>
+            <option value="Photography">摄影</option>
+            <option value="Utility">实用工具</option>
+          </select>
+        </div>
+
+        {/* 显示结果数量 */}
+        <div className="text-gray-400 ml-auto">
+          找到 {filteredNFTs.length} 个NFT
+        </div>
+      </div>
+    );
   };
 
-  // 恢复自动轮播
-  const resumeAutoPlay = () => {
-    setIsAutoPlaying(true);
+  // 添加 useEffect 来监听排序和过滤条件的变化
+  useEffect(() => {
+    if (allNFTs.length > 0) {
+      const filtered = getSortedAndFilteredNFTs(allNFTs);
+      setFilteredNFTs(filtered);
+    }
+  }, [sortBy, filterAttribute, allNFTs]);
+
+  // 添加导航箭头处理函数
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    const maxPage = Math.ceil(filteredNFTs.length / itemsPerPage);
+    if (currentPage < maxPage) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // 从 localStorage 加载性能模式设置
+  useEffect(() => {
+    const savedMode = localStorage.getItem('performanceMode');
+    if (savedMode) {
+      setIsHighPerformance(savedMode === 'high');
+    }
+  }, []);
+
+  // 切换性能模式
+  const togglePerformanceMode = () => {
+    const newMode = !isHighPerformance;
+    setIsHighPerformance(newMode);
+    localStorage.setItem('performanceMode', newMode ? 'high' : 'normal');
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1147]">
+    <div className={`min-h-screen bg-[#1a1147] transition-performance ${!isHighPerformance ? 'normal-mode' : ''}`}>
       <div className="container mx-auto px-4 py-8">
         {/* 添加数据状态指示器 */}
         <div className="mb-4 text-gray-400">
@@ -367,7 +620,11 @@ const AllNFTs: NextPage = () => {
                   placeholder="Search Products"
                   value={searchText}
                   onChange={(e: any) => setSearchText(e.target.value)}
-                  className="w-full bg-[#231564] border border-[#3d2b85] rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 pl-10"
+                  className="w-full bg-[#231564] border border-[#3d2b85] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-500 pl-10"
+                  style={{ 
+                    color: '#fff', // 设置输入文字颜色
+                    caretColor: '#fff', // 设置光标颜色
+                  }}
                 />
                 <svg
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
@@ -390,63 +647,132 @@ const AllNFTs: NextPage = () => {
           <StepsGuide />
         </div>
 
+        {/* 添加分类控制组件 */}
+        <div className="container mx-auto px-6 py-4">
+          <FilterAndSort />
+        </div>
+
         {/* NFT列表部分 */}
         <div className="container mx-auto px-6 py-8">
           {paginatedNFTs.length === 0 ? (
             <div className="text-2xl text-gray-400 text-center">暂无在售NFT</div>
           ) : (
-            <div className="relative">
-              {/* 只有当NFT数量大于3时才显示导航按钮 */}
-              {paginatedNFTs.length > 3 && (
-                <>
-                  <button
-                    onClick={handlePrev}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/30 p-2 rounded-full"
-                  >
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/30 p-2 rounded-full"
-                  >
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </>
-              )}
-              
+            <>
               {/* NFT展示区域 */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-4">
-                {getVisibleNFTs().map((nft) => (
-                  <div
-                    key={nft.id}
-                    className="bg-[#231564] rounded-xl overflow-hidden border border-[#3d2b85] cursor-pointer transform transition-transform hover:scale-105 h-full"
-                    onClick={() => openModal(nft)}
+              <div className="relative">
+                {/* 左箭头 */}
+                {currentPage > 1 && (
+                  <button
+                    onClick={handlePrevPage}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 z-10 p-3 rounded-full bg-[#231564]/80 border border-[#3d2b85] hover:bg-[#231564] transition-all hover:scale-110 hover:shadow-lg hover:shadow-purple-500/20"
                   >
-                    <div className="aspect-square w-full relative overflow-hidden">
-                      <img
-                        src={nft.image}
-                        alt={nft.name}
-                        className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+                    <svg
+                      className="w-6 h-6 text-white/80 hover:text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
                       />
-                    </div>
-                    
-                    <div className="p-5">
-                      <h3 className="text-xl font-bold text-white mb-3">{nft.name}</h3>
-                      <div className="flex justify-between items-center">
-                        <span className="text-purple-400 text-lg font-medium">{getPriceById(nft.id)} ETH</span>
-                        <button className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
-                          购买
-                        </button>
+                    </svg>
+                  </button>
+                )}
+
+                {/* 右箭头 */}
+                {currentPage < Math.ceil(filteredNFTs.length / itemsPerPage) && (
+                  <button
+                    onClick={handleNextPage}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 z-10 p-3 rounded-full bg-[#231564]/80 border border-[#3d2b85] hover:bg-[#231564] transition-all hover:scale-110 hover:shadow-lg hover:shadow-purple-500/20"
+                  >
+                    <svg
+                      className="w-6 h-6 text-white/80 hover:text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </button>
+                )}
+
+                {/* NFT 展示区域 */}
+                <div className="grid grid-cols-4 gap-8 px-6 max-w-[1600px] mx-auto">
+                  {paginatedNFTs.map((nft) => (
+                    <div
+                      key={nft.id}
+                      className="bg-[#231564] rounded-xl overflow-hidden border border-[#3d2b85] cursor-pointer float-card relative"
+                      onClick={() => openModal(nft)}
+                    >
+                      {ownedNFTs.includes(nft.id) && (
+                        <div className="absolute -top-1 -right-1 z-10">
+                          <div className="bg-purple-500/80 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-bl-md scan-effect">
+                            已拥有
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="aspect-square w-full relative hologram-effect">
+                        <img
+                          src={nft.image}
+                          alt={nft.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      
+                      <div className="p-5">
+                        <h3 className="text-lg font-bold text-white mb-4 truncate neon-text">{nft.name}</h3>
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-400 text-lg font-medium matrix-rain">{getPriceById(nft.id)} ETH</span>
+                          <button 
+                            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-base rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 energy-pulse"
+                          >
+                            <svg 
+                              className="w-5 h-5" 
+                              fill="none" 
+                              viewBox="0 0 24 24" 
+                              stroke="currentColor"
+                            >
+                              <path 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={2} 
+                                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" 
+                              />
+                            </svg>
+                            <span>购买</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+
+              {/* 分页控件 - 修改样式和位置 */}
+              {filteredNFTs.length > itemsPerPage && (
+                <div className="mt-12 flex justify-center">
+                  <Pagination
+                    current={currentPage}
+                    total={filteredNFTs.length}
+                    pageSize={itemsPerPage}
+                    onChange={handlePageChange}
+                    className="custom-pagination"
+                    showSizeChanger={false} // 隐藏页码选择器
+                    showQuickJumper={false} // 隐藏快速跳转
+                    showTotal={(total) => `共 ${total} 个`} // 显示总数
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -589,6 +915,19 @@ const AllNFTs: NextPage = () => {
             color: white;
           }
         `}</style>
+
+        {/* 性能模式切换按钮 */}
+        <button 
+          className="performance-toggle"
+          onClick={togglePerformanceMode}
+        >
+          {isHighPerformance ? '切换到普通模式' : '切换到高性能模式'}
+        </button>
+        
+        {/* 性能模式指示器 */}
+        <div className="performance-indicator">
+          {isHighPerformance ? '高性能模式' : '普通模式'}
+        </div>
       </div>
     </div>
   );

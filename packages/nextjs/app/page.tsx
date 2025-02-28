@@ -32,7 +32,7 @@ const nftItems: NFTItem[] = [
     id: 2,
     image: '/1.avif',
     title: '《暴力猴》NFT系列',
-    description: '🌹《暴力猴》NFT系列，展现了猴子与科技的结合，激光眼象征着力量与智慧，充满未来感与无限可能的视觉冲击，激发无限���意灵感。。 🌺🌿',
+    description: '🌹《暴力猴》NFT系列，展现了猴子与科技的结合，激光眼象征着力量与智慧，充满未来感与无限可能的视觉冲击，激发无限灵感。。 🌺🌿',
     author: '刘宇坚',
     owner: '张芊',
     copyright: '版权所有，未经授权禁止转载',
@@ -568,7 +568,7 @@ export default function Home() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-gray-400">价格</span>
                         <div className="flex items-center space-x-2">
-                          <img src="/eth-logo.svg" alt="ETH" className="w-4 h-4" />
+                         
                           <span>{selectedNFT.price} ETH</span>
                         </div>
                       </div>

@@ -81,12 +81,67 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
       });
       notification.remove(notificationId);
 
-      notification.success(
-        <TxnNotification message="交易成功!" blockExplorerLink={blockExplorerTxURL} />,
-        {
-          icon: "🎉",
-        },
-      );
+      const processTransaction = async (tx: TransactionReceipt) => {
+        try {
+          const resolvedTx = await tx;
+          
+          // 等待交易确认
+          const txResult = await waitForTransaction({
+            hash: resolvedTx,
+          });
+
+          // 先显示自定义的成功通知
+          if (notifications.success) {
+            notifications.success(txResult);
+          }
+
+          // 显示合并后的成功通知
+          notification.success({
+            message: 'NFT购买成功',
+            description: (
+              <div className="flex flex-col gap-3">
+                <div className="text-green-400">NFT已成功转移到您的账户</div>
+                <div className="success-checkmark">
+                  <div className="check-icon">
+                    <span className="icon-line line-tip"></span>
+                    <span className="icon-line line-long"></span>
+                    <div className="icon-circle"></div>
+                    <div className="icon-fix"></div>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-[#10B981]">
+                  <span className="text-lg">🎉</span>
+                  <div className="flex flex-col">
+                    <span className="font-medium">交易成功!</span>
+                    <a href={blockExplorerTxURL} 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       className="text-sm hover:text-[#047857] transition-colors">
+                      check out transaction
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ),
+            className: 'purchase-success-notification',
+            duration: 3.5,
+            placement: 'top',
+            style: {
+              background: 'rgba(35, 21, 100, 0.95)',
+              borderLeft: '4px solid #10B981',
+              backdropFilter: 'blur(10px)',
+            },
+            onClose: () => {
+              // 通知关闭后刷新页面
+              window.location.reload();
+            }
+          });
+
+          return resolvedTx;
+        } catch (error) {
+          // ... 错误处理保持不变
+        }
+      };
 
       if (options?.onBlockConfirmation) options.onBlockConfirmation(transactionReceipt);
     } catch (error: any) {
